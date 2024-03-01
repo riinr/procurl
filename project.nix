@@ -1,0 +1,43 @@
+{
+  # Name your shell environment
+  devshell.name = "proccurl";
+
+  # create .gitignore
+  files.gitignore.enable = true;
+  # copy contents from https://github.com/github/gitignore
+  # to our .gitignore
+  files.gitignore.template."Global/Archives" = true;
+  files.gitignore.template."Global/Backup"   = true;
+  files.gitignore.template."Global/Diff"     = true;
+  files.gitignore.pattern."*\n!/**/\n!*.*"   = true;
+
+  # install a packages
+  packages = [
+    "nim2"
+    "binutils"
+  ];
+
+  # configure direnv .envrc file
+  files.direnv.enable = true;
+
+  files.alias.benchc = ''
+    # Compiles all benchmarks
+    find $PRJ_ROOT/bench -name '*.nim' \
+     -execdir nim c \
+       --mm:arc \
+       --passC:"-march=native" \
+       -d:boring.benchruns:''${1:-50} \
+       -d:boring.benchslots:''${2:-5} \
+       -d:release  \
+       -d:danger   \
+       --opt:speed \
+       {} \;
+  '';
+  files.alias.benchr = ''
+    # Run all benchmarks
+    for i in $(find $PRJ_ROOT/bench -type f -executable); do
+      echo $i
+      $i
+    done
+  '';
+}
