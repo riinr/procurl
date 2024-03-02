@@ -137,11 +137,11 @@ Note: benchmarking is hard.
 
 ### MemCopy
 
-Tries to measure the most efficient size to copy, check [for more info](./memcpybench/memcopybench.sh) for mor info and results.
+Tries to measure the most efficient size to copy, check [memcopybench.sh](./memcpybench/memcopybench.sh) for more info and results.
 
 But ~8KB was the most efficient copy size, 
 
-If defining architecture as Intel, could be ~12KB but would make binary less portable.
+If we define architecture as Intel, could be ~12KB but would make binary less portable.
 
 I don't have any AMD to test.
 
@@ -157,7 +157,7 @@ Tries to measure two or more threads sending nanoseconds to each other, with Rin
 
 Single Producer (1 thread), Single Consumer (1 thread)
 
-|Sending NS|Receiving NS|Latency NS|Send Retries|Receiving Retries|
+|Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
 |24694|249|3951|0|0|
 |84|156|4024|0|0|
@@ -215,7 +215,7 @@ Single Producer (1 thread), Single Consumer (1 thread)
 
 Multiple Producer (2 threads), Single Consumer (1 thread).
 
-|Sending NS|Receiving NS|Latency NS|Send Retries|Receiving Retries|
+|Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
 |1489|246|120717|0|0|
 |74|287|120760|1|0|
@@ -273,7 +273,7 @@ Multiple Producer (2 threads), Single Consumer (1 thread).
 
 Single Producer (1 thread), Multiple Consumer (2 threads)
 
-|Sending NS|Receiving NS|Latency NS|Send Retries|Receiving Retries|
+|Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
 |809|280|8704|0|0|
 |60|304|8955|0|0|
@@ -331,7 +331,7 @@ Single Producer (1 thread), Multiple Consumer (2 threads)
 
 Multiple Producer (2 threads), Multiple Consumer (2 threads)
 
-|Sending NS|Receiving NS|Latency NS|Send Retries|Receiving Retries|
+|Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
 |1402|333|26486|0|0|
 |89|164|26530|0|0|
@@ -390,23 +390,23 @@ Multiple Producer (2 threads), Multiple Consumer (2 threads)
 
 The IPC part of this code, also has main function that sends uint8 to other process forever.
 
-With 2 process, each with 02 RingBuffer (I/O) each, each 2 slots and 32bytes.
+With 2 process, each with 02 RingBuffer (I/O), each with 2 slots and 32bytes.
 
 Different from the RingBuffer benchmarks, this only show how much each proccess requires to fire and forget.
 
-||receiver NS|sender NS|
-|-| -| -|
-|count|6650392|6650392|
-|mean|142|140|
-|std|170|173|
-|min|1|44|
-|25%|91|89|
-|50%|94|101|
-|75%|120|128|
-|95%|371.0|385|
-|96%|418.0|440|
-|97%|494.0|518|
-|98%|597.0|627|
-|99%|740|807|
-|max|89382|31445|
+|     |Sending (ns)|Receiving (ns)|
+|-    |           -|             -|
+|count|6650392     |6650392       |
+|mean |140         |142           |
+|std  |173         |170           |
+|min  |44          |1             |
+|25%  |89          |91            |
+|50%  |101         |94            |
+|75%  |128         |120           |
+|95%  |385         |371           |
+|96%  |440         |418           |
+|97%  |518         |494           |
+|98%  |627         |597           |
+|99%  |807         |740           |
+|max  |31445       |89382         |
 
