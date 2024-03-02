@@ -301,7 +301,7 @@ template dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
 
 
 proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
-    arena: var openarray[uint8]
+    arena: pointer
 ): ptr Queue[SLOTS, P, C, T] =
   ## create newQueue
   ##
@@ -310,8 +310,7 @@ proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
   ## - C    : Single (SC) or Multiple (MC) consumers
   ## - T    : object Type
   ##
-  assert arena.len >= sizeof Queue[SLOTS, P, C, T]
-  cast[ptr Queue[SLOTS, P, C, T]](arena.addr)
+  cast[ptr Queue[SLOTS, P, C, T]](arena)
 
 
 proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](): ptr Queue[SLOTS, P, C, T] =
@@ -322,5 +321,5 @@ proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](): ptr Queue[SLOT
   ## - C    : Single (SC) or Multiple (MC) consumers
   ## - T    : object Type
   ##
-  var arena = createShared(array[static sizeOfQ[SLOTS, T](), uint8])
-  cast[ptr Queue[SLOTS, P, C, T]](arena)
+  let arena = createShared(array[static sizeOfQ[SLOTS, T](), uint8])
+  cast[ptr Queue[SLOTS, P, C, T]](arena.addr)

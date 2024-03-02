@@ -12,7 +12,7 @@ var idx: Atomic[int]
 
 
 proc producer(thr: int): void {.thread.} =
-  var queue = newQueue[SLOTS, SP[SLOTS], MC[SLOTS], MonoTime](arena)
+  var queue = newQueue[SLOTS, SP[SLOTS], MC[SLOTS], MonoTime](arena.addr)
   var cur   = queue.producer
   var vRD   = RD
   var t     = getMonoTime()
@@ -30,7 +30,7 @@ proc producer(thr: int): void {.thread.} =
 
 
 proc consumer(thr: int): void {.thread.} =
-  var queue = newQueue[SLOTS, SP[SLOTS], MC[SLOTS], MonoTime](arena)
+  var queue = newQueue[SLOTS, SP[SLOTS], MC[SLOTS], MonoTime](arena.addr)
   var cur   = queue.consumer
   var vWD   = WD
   var t     = getMonoTime()

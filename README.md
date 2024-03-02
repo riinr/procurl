@@ -2,7 +2,7 @@
 
 ### What?
 
-Linux command/lib POC of use libcurl without¹ linking
+Linux command/lib POC to use libcurl without¹ linking
 
 
 ### Why?
@@ -45,7 +45,7 @@ When someone offers something, there is always small letter at the end.
 <small>
 1. **¹** we are linking at libcurl, maybe not your main app but someone has to link it;
 2. We are not only linking with libcurl, but now we have other lib to link;
-3. Most important than provious points, we loose speed, not mesured yet, but there is no way to match dynamic/static linking [speed with IPC](https://github.com/goldsborough/ipc-bench).
+3. Most important than provious points, we lose speed, not mesured yet, but there is no way to match dynamic/static linking [speed with IPC](https://github.com/goldsborough/ipc-bench).
 <small>
 
 
@@ -60,7 +60,7 @@ Future implementation may share memory for speed, in this case we are expecting 
 
 Until completed we're not sure about speed loss.
 
-It should be a lib not only for http, but lib for IPC with schema (like Cap'n Proto or Protobuf) to make other integrations like DB, SSH, GPU, etc.
+It should be a lib not only for http, but lib for IPC with schema (like Cap'n Proto or Thrift) to make other integrations like DB, SSH, etc.
 
 
 ## More details
@@ -111,3 +111,10 @@ Example
 libProcCurl should sort by `rate` as greatest is fastest and choose fastest it knows.
 
 libProcCurl may accept or  minVersion parameter and compare with version, throwing an exception.
+
+
+## TODO:
+
+[ ] Define spec (almost completed)
+[ ] Evaluate min requirements (ie: JSON or msgpack, mmap or FD, etc)
+[ ] POC

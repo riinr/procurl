@@ -11,7 +11,7 @@ var attempts: array[RUNS, array[2, int]]
 
 
 proc producer(): void {.thread.} =
-  var queue = newQueue[SLOTS, SP[SLOTS], SC[SLOTS], MonoTime](arena)
+  var queue = newQueue[SLOTS, SP[SLOTS], SC[SLOTS], MonoTime](arena.addr)
   var cur   = queue.producer
   var vRD   = RD
   var t     = getMonoTime()
@@ -28,7 +28,7 @@ proc producer(): void {.thread.} =
 
 
 proc consumer(): void {.thread.} =
-  var queue = newQueue[SLOTS, SP[SLOTS], SC[SLOTS], MonoTime](arena)
+  var queue = newQueue[SLOTS, SP[SLOTS], SC[SLOTS], MonoTime](arena.addr)
   var cur   = queue.consumer
   var vWD   = WD
   var t     = getMonoTime()
