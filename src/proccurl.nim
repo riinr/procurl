@@ -16,7 +16,7 @@ when isMainModule:
     }
   },
   "formats": {
-    "flatty": { "speedRate": 10 }
+    "raw":    { "speedRate": 20 }
   }
 }"""
       quit 0

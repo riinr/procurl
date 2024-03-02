@@ -3,7 +3,7 @@
 # The objective is find largest and most effective size of memory copy
 # To know what would be the best largest size of a message
 
-# Copy different memory sizes between 1024 and 507904 bytes, 1000 times
+# Copy different memory sizes between 1024 bytes and 507 KB, 1000 times
 # Collect top 5 on bytes per tick
 # Sort by number of times one size reached top 5
 V="${1:-./memcopybench}"
