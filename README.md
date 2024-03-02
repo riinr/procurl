@@ -128,18 +128,26 @@ libProcCurl may accept or  minVersion parameter and compare with version, throwi
   1. [x] RingBuffer
   2. [x] Inter Process Communication (IPC) with MMAP
   3. [ ] Serialization (or no serialization)
-  4. [ ] Messages (IPC API)
+  4. [ ] Inter Process Procedure Call (IPPC), IPC API
   4. [ ] libProcCurl API
 
-## Benchmarks:
+## Benchmarks
+
+Note: benchmarking is hard.
 
 ### MemCopy
 
-Tries to measure the most efficient size to copy, check [./memcpybench/memcopybench.sh](for more info) for mor info and results.
+Tries to measure the most efficient size to copy, check [for more info](./memcpybench/memcopybench.sh) for mor info and results.
+
+But ~8KB was the most efficient copy size, 
+
+If defining architecture as Intel, could be ~12KB but would make binary less portable.
+
+I don't have any AMD to test.
 
 ### Ring Buffer
 
-Tries to measure two or more threads sending nanoseconds to each other.
+Tries to measure two or more threads sending nanoseconds to each other, with Ring Buffer that have 10 slots (max entries before retry).
 
 - i5-1240P/LPDDR5 5200MHz 
 - Linux T1 6.1.69 NixOS SMP PREEMPT DYNAMIC Dec 20 16:00:29 UTC 2023 x86-64
@@ -375,3 +383,30 @@ Multiple Producer (2 threads), Multiple Consumer (2 threads)
 |246|150|65|0|0|
 |250|204|196|0|1|
 |365|83|96|0|1|
+
+
+
+### IPC
+
+The IPC part of this code, also has main function that sends uint8 to other process forever.
+
+With 2 process, each with 02 RingBuffer (I/O) each, each 2 slots and 32bytes.
+
+Different from the RingBuffer benchmarks, this only show how much each proccess requires to fire and forget.
+
+||receiver NS|sender NS|
+|-| -| -|
+|count|6650392|6650392|
+|mean|142|140|
+|std|170|173|
+|min|1|44|
+|25%|91|89|
+|50%|94|101|
+|75%|120|128|
+|95%|371.0|385|
+|96%|418.0|440|
+|97%|494.0|518|
+|98%|597.0|627|
+|99%|740|807|
+|max|89382|31445|
+
