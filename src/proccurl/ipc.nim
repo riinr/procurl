@@ -146,10 +146,34 @@ iterator producer*[T](q: ref QueueObj; v: var T): bool {.closure.} =
     of qf02x32:
       var cur = q.q02x32p.producer
       while true:
-        while not q.q02x32p.enqueue(cur, v, vRD, sizeof(uint8).uint32):
+        while not q.q02x32p.enqueue(cur, v, vRD, sizeof(T).uint32):
           yield false
           vRD = RD
           cur = q.q02x32p.producer
+        yield true
+    of qf08x32:
+      var cur = q.q08x32p.producer
+      while true:
+        while not q.q08x32p.enqueue(cur, v, vRD, sizeof(T).uint32):
+          yield false
+          vRD = RD
+          cur = q.q08x32p.producer
+        yield true
+    of qf16x16:
+      var cur = q.q16x16p.producer
+      while true:
+        while not q.q16x16p.enqueue(cur, v, vRD, sizeof(T).uint32):
+          yield false
+          vRD = RD
+          cur = q.q16x16p.producer
+        yield true
+    of qf32x08:
+      var cur = q.q32x08p.producer
+      while true:
+        while not q.q32x08p.enqueue(cur, v, vRD, sizeof(T).uint32):
+          yield false
+          vRD = RD
+          cur = q.q32x08p.producer
         yield true
     else:
       yield false
@@ -165,6 +189,30 @@ iterator consumer*[T](q: ref QueueObj; v: var T): bool {.closure.} =
           yield false
           vWD = WD
           cur = q.q02x32p.consumer
+        yield true
+    of qf08x32:
+      var cur = q.q08x32p.consumer
+      while true:
+        while not q.q08x32p.dequeue(cur, v, vWD):
+          yield false
+          vWD = WD
+          cur = q.q08x32p.consumer
+        yield true
+    of qf16x16:
+      var cur = q.q16x16p.consumer
+      while true:
+        while not q.q16x16p.dequeue(cur, v, vWD):
+          yield false
+          vWD = WD
+          cur = q.q16x16p.consumer
+        yield true
+    of qf32x08:
+      var cur = q.q32x08p.consumer
+      while true:
+        while not q.q32x08p.dequeue(cur, v, vWD):
+          yield false
+          vWD = WD
+          cur = q.q32x08p.consumer
         yield true
     else:
       yield false
