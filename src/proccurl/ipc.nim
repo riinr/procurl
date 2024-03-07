@@ -96,9 +96,7 @@ proc headArena*(ipcInfo: IpcInfo): pointer =
 
 proc tailArena*(ipcInfo: IpcInfo): pointer =
   cast[pointer](
-    cast[pointer](
-      cast[uint](ipcInfo.memFile.mem) + ipcInfo.headSize
-    )
+    cast[uint](ipcInfo.memFile.mem) + ipcInfo.headSize
   )
 
 proc createIPCInfo*(headFormat, tailFormat: QueueFormat; memFileName: string; isMyFile: bool): IpcInfo =
