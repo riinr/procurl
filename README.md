@@ -153,7 +153,7 @@ Tries to measure two or more threads sending nanoseconds to each other, with Rin
 - Linux T1 6.1.69 NixOS SMP PREEMPT DYNAMIC Dec 20 16:00:29 UTC 2023 x86-64
 
 
-#### SCSP
+#### SPSC
 
 Single Producer (1 thread), Single Consumer (1 thread)
 
@@ -211,7 +211,7 @@ Single Producer (1 thread), Single Consumer (1 thread)
 |98|100|633|2|0|
 
 
-#### MCSP
+#### MPSC
 
 Multiple Producer (2 threads), Single Consumer (1 thread).
 
@@ -269,7 +269,7 @@ Multiple Producer (2 threads), Single Consumer (1 thread).
 |243|248|117|0|0|
 
 
-#### SCMP
+#### SPMC
 
 Single Producer (1 thread), Multiple Consumer (2 threads)
 
@@ -327,7 +327,7 @@ Single Producer (1 thread), Multiple Consumer (2 threads)
 |344|68|618|0|0|
 
 
-#### MCMP
+#### MPMC
 
 Multiple Producer (2 threads), Multiple Consumer (2 threads)
 
