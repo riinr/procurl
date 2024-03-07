@@ -66,18 +66,18 @@ It should be a lib not only for http, but lib for IPC with schema (like Cap'n Pr
 ## More details
 
 1. libProcCurl starts procCurlI with `--protocols`
-  1. procCurlI returns a json with with transports, serialization formats and version to stdout.
-    1. Transports are any transport supported by like io, tcp, unix, mmap, others, libProcCurl may try to use the fastest.
-    2. Serialization formats like JSONRPC, grpc, msgpack-rpc and others, libProcCurl may try to use the fastest.
-    3. Version is minor version in [SemVer](https://semver.org/), major version is defined by execuble name
+    1. procCurlI returns a json with with transports, serialization formats and version to stdout.
+        1. Transports are any transport supported by like io, tcp, unix, mmap, others, libProcCurl may try to use the fastest.
+        2. Serialization formats like JSONRPC, grpc, msgpack-rpc and others, libProcCurl may try to use the fastest.
+        3. Version is minor version in [SemVer](https://semver.org/), major version is defined by execuble name
         ie (procCurlI, procCurlII, etc), patch won't make sense to be exposed, libProcCurl may try use lastest available.
 2. libProcCurl reads protocols json to form a URI `{transport}://({ip}|{dir}/{session}.{format}`
-  1. Transport from --protocols json
-  2. ip or dir depending on the transport
-  3. session, a randon string to make it possible run multiple client instances wihtout conflict
-  4. format, serialization format (ie. .jsonrpc, .grpc, etc)
+    1. Transport from --protocols json
+    2. ip or dir depending on the transport
+    3. session, a randon string to make it possible run multiple client instances wihtout conflict
+    4. format, serialization format (ie. .jsonrpc, .grpc, etc)
 3. libProcCurl starts procCurlI with URI as last parameter, libProcCurl should be flexible to accept URI from parameter and skip step 1.
-  1. procCurlI uses URI to create a connection and wait for messages.
+    1. procCurlI uses URI to create a connection and wait for messages.
 4. libProcCurl uses URI to create a connection and start sending messages.
 
 ### Protocols JSON:
@@ -107,7 +107,7 @@ Example:
     "msgpack-rpc": {
       "rate": 10
     }
-    "raw": { // fast but imparity prone
+    "raw": { // fast but version imparity prone
       "rate": 20
     }
   },
