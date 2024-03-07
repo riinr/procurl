@@ -40,4 +40,14 @@
       $i
     done
   '';
+  files.alias.ipcs = ''
+    # Compile and RUN IPC main command as Server
+    rm -rf /tmp/ipc-*.mmap
+    nim c -o:/tmp/proccurl-ipc-main $PRJ_ROOT/src/proccurl/ipc.nim && \
+      /tmp/proccurl-ipc-main 08x32 08x32
+  '';
+  files.alias.ipcc = ''
+    # RUN IPC main command as Client (server must be running)
+    /tmp/proccurl-ipc-main 08x32 08x32 /tmp/ipc-*.mmap
+  '';
 }

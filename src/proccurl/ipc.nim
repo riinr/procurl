@@ -263,37 +263,30 @@ when isMainModule:
         '"', "IsMyFile",    '"', ':', '"', ipc.info.isMyFile,    '"', ' ',
       "}}"
   
-    var p = producer[uint8]
-    var c = consumer[uint8]
+    var write = producer[uint8]
+    var read  = consumer[uint8]
     var s = getMonoTime()
     var r = getMonoTime()
     var i: uint8 = 0
     if info.isMyFile:
       while true:
         s = getMonoTime()
-        if p(ipc.headQ, i):
+        if ipc.headQ.write i:
           echo 's', inNanoseconds(getMonoTime() - s)
           inc i
-        else:
-          echo "s miss"
         r = getMonoTime()
-        if c(ipc.tailQ, i):
+        if ipc.tailQ.read i:
           echo 'r', inNanoseconds(getMonoTime() - r)
-        else:
-          echo "s miss"
     else:
-      while not (finished(p) and finished(c)):
+      while true:
         r = getMonoTime()
-        if c(ipc.headQ, i):
+        if ipc.headQ.read i:
           discard
           echo 'r', inNanoseconds(getMonoTime() - r)
-        else:
-          echo "r miss"
+          echo 'v', i
         s = getMonoTime()
-        if p(ipc.tailQ, i):
+        if ipc.tailQ.write i:
           echo 's', inNanoseconds(getMonoTime() - s)
           inc i
-        else:
-          echo "s miss"
 
   main()
