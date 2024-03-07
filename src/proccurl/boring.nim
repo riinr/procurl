@@ -52,41 +52,41 @@ proc `$`[SLOTS: static int](idx: Idx[SLOTS]): string =
   $(cast[uint32](idx))
 
 
-template `[]=`*[SLOTS: static int, T](a: var Ram[SLOTS, T]; i: Idx[SLOTS], v: T): void =
-  a.data[i] = v
+template `[]=`*[SLOTS: static int, T](r: var Ram[SLOTS, T]; i: Idx[SLOTS], v: T): void =
+  r.data[i] = v
 
-template `[]` *[SLOTS: static int, T](a: var Ram[SLOTS, T]; i: Idx[SLOTS]): T =
-  a.data[i]
+template `[]` *[SLOTS: static int, T](r: var Ram[SLOTS, T]; i: Idx[SLOTS]): T =
+  r.data[i]
 
 
 template open_reader* [SLOTS: static int, T](
-    a:   var Ram[SLOTS, T];
-    i:   Idx[SLOTS];
-    vWD: var IStat;
+    r: var Ram[SLOTS, T];
+    i: Idx[SLOTS];
+    s: var IStat;
 ): bool =
-  a.stat[cast[uint32](i)].compareExchange(vWD, RR, moAcquire, moRelaxed)
+  r.stat[cast[uint32](i)].compareExchangeWeak(s, RR, moRelaxed, moRelaxed)
 
 
 template close_reader*[SLOTS: static int, T](
-    a: var Ram[SLOTS, T];
+    r: var Ram[SLOTS, T];
     i: Idx[SLOTS];
 ): void =
-  a.stat[cast[uint32](i)].store RD, moRelease
+  r.stat[cast[uint32](i)].store RD, moRelaxed
 
 
 template open_writer* [SLOTS: static int, T](
-    a:   var Ram[SLOTS, T];
-    i:   Idx[SLOTS];
-    vRD: var IStat
+    r: var Ram[SLOTS, T];
+    i: Idx[SLOTS];
+    s: var IStat
 ): bool =
-  a.stat[cast[uint32](i)].compareExchange(vRD, WW, moAcquire, moRelaxed)
+  r.stat[cast[uint32](i)].compareExchangeWeak(s, WW, moRelaxed, moRelaxed)
 
 
 template close_writer*[SLOTS: static int, T](
-  a: var Ram[SLOTS, T];
+  r: var Ram[SLOTS, T];
   i: Idx[SLOTS];
 ): void =
-  a.stat[cast[uint32](i)].store WD, moRelease
+  r.stat[cast[uint32](i)].store WD, moRelaxed
 
 
 type
@@ -149,7 +149,6 @@ template dec*     [SLOTS: static int](c: var MC[SLOTS]; prev: Idx[SLOTS]): Idx[S
   cast[Idx[SLOTS]](reader)
 
 
-
 template dec*     [SLOTS: static int](c: var C[SLOTS]): Idx[SLOTS] = c.dec c.consumer
 
 
@@ -188,10 +187,10 @@ template `sizes`*     [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Qu
 template `sizes`*     [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): uint32 =
   q.a.sizes[cast[uint32](i)].load moRelaxed
 
-template open_reader* [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]; vWD: var IStat): bool =
-  q.a.open_reader  i, vWD
-template open_writer* [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]; vRD: var IStat): bool =
-  q.a.open_writer  i, vRD
+template open_reader* [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]; s: var IStat): bool =
+  q.a.open_reader  i, s
+template open_writer* [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]; s: var IStat): bool =
+  q.a.open_writer  i, s
 template close_reader*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): void =
   q.a.close_reader i
 template close_writer*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): void =
@@ -213,28 +212,28 @@ template consumer*    [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Qu
 
 
 proc enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
-    q:    ptr Queue[SLOTS, P, C, T];
-    i:    var Idx[SLOTS];
-    v:    var TT;
-    vRD:  var IStat;
-    s:    uint32;
+    q: ptr Queue[SLOTS, P, C, T];
+    i: var Idx[SLOTS];
+    v: var TT;
+    s: var IStat;
+    l: uint32;
 ): bool =
-  if not q.open_writer(i, vRD):
+  if not q.open_writer(i, s):
     return false
 
   let old = i
   i = q.inc i
-  q.sizes old, s
-  copyMem q[old].addr, v.addr, s
+  q.sizes old, l
+  copyMem q[old].addr, v.addr, l
   q.close_writer old
   return  true
 
 
 template enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
-    q:    ptr Queue[SLOTS, P, C, T];
-    i:    var Idx[SLOTS];
-    v:    var T;
-    vRD:  var IStat;
+    q: ptr Queue[SLOTS, P, C, T];
+    i: var Idx[SLOTS];
+    v: var T;
+    s: var IStat;
 ): bool =
   ## this version let you reuse vars
   ## BEWARE of side effects
@@ -248,23 +247,23 @@ template enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
   ##   - vRD == RR means BUSY i, other thread is reading
   ##     - In a single   consumer, try same i again, it may be completed 
   ##     - In a multiple consumer, fetch i again (order safe) or try the same (order unsafe)
-  q.enqueue i, v, vRD, sizeof(T).uint32
+  q.enqueue i, v, s, sizeof(T).uint32
 
 
 template enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
     q:    ptr Queue[SLOTS, P, C, T];
     v:    var T;
 ): bool =
-  var i   = queue.producer
-  var vRD = RD
-  q.enqueue i, v, vRD, sizeof(T).uint32
+  var i = queue.producer
+  var s = RD
+  q.enqueue i, v, s, sizeof(T).uint32
 
 
 proc dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
-    q:    ptr Queue[SLOTS, P, C, T];
-    i:    var Idx[SLOTS];
-    v:    var TT;
-    vWD:  var IStat;
+    q: ptr Queue[SLOTS, P, C, T];
+    i: var Idx[SLOTS];
+    v: var TT;
+    s: var IStat;
 ): bool =
   ## this version let you reuse vars
   ## BEWARE of side effects
@@ -278,7 +277,9 @@ proc dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
   ##   - vWD == WW means BUSY i, other thread is writing
   ##     - In a single   consumer, try same i again, it may be completed 
   ##     - In a multiple consumer, fetch i again (order safe) or try the same (order unsafe)
-  if not q.open_reader(i, vWD):
+  ##
+  ##
+  if not q.open_reader(i, s):
     return false
 
   let old = i
@@ -292,9 +293,9 @@ template dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
     q:    ptr Queue[SLOTS, P, C, T];
 ): Option[T] =
   var v: T;
-  var i   = q.consumer;
-  var vWD = WD;
-  if q.enqueue(i, v, vWD):
+  var i = q.consumer;
+  var s = WD;
+  if q.enqueue(i, v, s):
     some(v)
   else:
     none(T)

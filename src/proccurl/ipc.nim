@@ -2,9 +2,6 @@ import std/[cmdline, memfiles]
 import boring
 
 const PAGE_SIZE = 4096
-const MAX_SIZE: uint =
-  static:
-    cast[uint](sizeOfQ[32, array[08 * 1024, uint8]]())
 
 type
   QueueFormat* = enum
@@ -15,23 +12,20 @@ type
     qf32x08, # 32 slots of 08 KB each
 
   Queue00x00* = Queue[00, MP[00], MC[00], array[00 * 1024, uint8]]
-  Queue02x32* = Queue[02, MP[02], MC[02], array[32 * 0001, uint8]]
   Queue08x32* = Queue[08, MP[08], MC[08], array[32 * 1024, uint8]]
   Queue16x16* = Queue[16, MP[16], MC[16], array[16 * 1024, uint8]]
   Queue32x08* = Queue[32, MP[32], MC[32], array[08 * 1024, uint8]]
 
-  QueueObj* = object
+  QueueObj* = ref object
     case format*: QueueFormat
-    of qf00x00:
-      q00x00p*: ptr Queue00x00
-    of qf02x32:
-      q02x32p*: ptr Queue02x32
     of qf08x32:
       q08x32p*: ptr Queue08x32
     of qf16x16:
       q16x16p*: ptr Queue16x16
     of qf32x08:
       q32x08p*: ptr Queue32x08
+    else:
+      q00x00p*: ptr Queue00x00
 
   IpcInfo* = object
     headFormat*:  QueueFormat
@@ -44,13 +38,12 @@ type
 
   Ipc* = object
     info*:  IpcInfo
-    headQ*: ref QueueObj
-    tailQ*: ref QueueObj
+    headQ*: QueueObj
+    tailQ*: QueueObj
 
 
 proc qSize*(qFormat: QueueFormat): uint =
   case qFormat
-    of qf02x32: static cast[uint](sizeOfQ[02, array[32 * 0001, uint8]]())
     of qf08x32: static cast[uint](sizeOfQ[08, array[32 * 1024, uint8]]())
     of qf16x16: static cast[uint](sizeOfQ[16, array[16 * 1024, uint8]]())
     of qf32x08: static cast[uint](sizeOfQ[32, array[08 * 1024, uint8]]())
@@ -59,41 +52,38 @@ proc qSize*(qFormat: QueueFormat): uint =
 
 proc qFormat*(format: string): QueueFormat =
   result = case format
-    of "02x32": qf02x32
     of "08x32": qf08x32
     of "16x16": qf16x16
     of "32x08": qf32x08
     else:       qf00x00
 
 
-proc new00x00QueueObj(arena: pointer): ref QueueObj =
-  result = new QueueObj
-  result.format = qf00x00
-  result.q00x00p = newQueue[00, MP[00], MC[00], array[00 * 1024, uint8]](arena)
+proc new00x00QueueObj(arena: pointer): QueueObj =
+  QueueObj(
+    format:  qf00x00,
+    q00x00p: newQueue[00, MP[00], MC[00], array[00 * 1024, uint8]](arena)
+  )
 
-proc new02x32QueueObj(arena: pointer): ref QueueObj =
-  result = new QueueObj
-  result.format = qf02x32
-  result.q02x32p = newQueue[02, MP[02], MC[02], array[32 * 0001, uint8]](arena)
+proc new08x32QueueObj(arena: pointer): QueueObj =
+  QueueObj(
+    format:  qf08x32,
+    q08x32p: newQueue[08, MP[08], MC[08], array[32 * 1024, uint8]](arena)
+  )
 
-proc new08x32QueueObj(arena: pointer): ref QueueObj =
-  result = new QueueObj
-  result.format = qf08x32
-  result.q08x32p = newQueue[08, MP[08], MC[08], array[32 * 1024, uint8]](arena)
+proc new16x16QueueObj(arena: pointer): QueueObj =
+  QueueObj(
+    format:  qf16x16,
+    q16x16p: newQueue[16, MP[16], MC[16], array[16 * 1024, uint8]](arena)
+  )
 
-proc new16x16QueueObj(arena: pointer): ref QueueObj =
-  result = new  QueueObj
-  result.format =  qf16x16
-  result.q16x16p = newQueue[16, MP[16], MC[16], array[16 * 1024, uint8]](arena)
+proc new32x08QueueObj(arena: pointer): QueueObj =
+  QueueObj(
+    format:  qf32x08,
+    q32x08p: newQueue[32, MP[32], MC[32], array[08 * 1024, uint8]](arena)
+  )
 
-proc new32x08QueueObj(arena: pointer): ref QueueObj =
-  result = new QueueObj
-  result.format = qf32x08
-  result.q32x08p = newQueue[32, MP[32], MC[32], array[08 * 1024, uint8]](arena)
-
-proc newQueue*(mem: pointer; fmt: QueueFormat): ref QueueObj =
+proc newQueue*(mem: pointer; fmt: QueueFormat): QueueObj =
   case fmt
-    of qf02x32: new02x32QueueObj mem
     of qf08x32: new08x32QueueObj mem
     of qf16x16: new16x16QueueObj mem
     of qf32x08: new32x08QueueObj mem
@@ -107,26 +97,28 @@ proc headArena*(ipcInfo: IpcInfo): pointer =
 proc tailArena*(ipcInfo: IpcInfo): pointer =
   cast[pointer](
     cast[pointer](
-      cast[uint](ipcInfo.memFile.mem) + MAX_SIZE
+      cast[uint](ipcInfo.memFile.mem) + ipcInfo.headSize
     )
   )
 
 proc createIPCInfo*(headFormat, tailFormat: QueueFormat; memFileName: string; isMyFile: bool): IpcInfo =
   let
-    headSize = headFormat.qSize
-    tailSize = tailFormat.qSize
+    # make sure we have multiples of page size
+    headSize = (uint(headFormat.qSize.int / PAGE_SIZE) + 1) * PAGE_SIZE
+    tailSize = (uint(tailFormat.qSize.int / PAGE_SIZE) + 1) * PAGE_SIZE
+    fileSize = headSize + tailSize
     memFile  =
       if isMyFile:
         memfiles.open(
           memFileName,
-          mode = fmReadWrite,
-          newFileSize = (int(int(headSize + tailSize) / PAGE_SIZE) + 1) * PAGE_SIZE,
+          mode        = fmReadWrite,
+          newFileSize = fileSize.int,
         )
       else:
         memfiles.open(
           memFileName,
-          mode = fmWrite,
-          mappedSize = (int(int(headSize + tailSize) / PAGE_SIZE) + 1) * PAGE_SIZE,
+          mode        = fmReadWrite,
+          mappedSize  = fileSize.int,
         )
 
   IpcInfo(
@@ -140,17 +132,9 @@ proc createIPCInfo*(headFormat, tailFormat: QueueFormat; memFileName: string; is
   )
 
 
-iterator producer*[T](q: ref QueueObj; v: var T): bool {.closure.} =
+iterator producer*[T](q: QueueObj; v: var T): bool {.closure.} =
   var vRD = RD
   case q.format
-    of qf02x32:
-      var cur = q.q02x32p.producer
-      while true:
-        while not q.q02x32p.enqueue(cur, v, vRD, sizeof(T).uint32):
-          yield false
-          vRD = RD
-          cur = q.q02x32p.producer
-        yield true
     of qf08x32:
       var cur = q.q08x32p.producer
       while true:
@@ -179,17 +163,9 @@ iterator producer*[T](q: ref QueueObj; v: var T): bool {.closure.} =
       yield false
 
 
-iterator consumer*[T](q: ref QueueObj; v: var T): bool {.closure.} =
+iterator consumer*[T](q: QueueObj; v: var T): bool {.closure.} =
   var vWD = WD
   case q.format
-    of qf02x32:
-      var cur = q.q02x32p.consumer
-      while true:
-        while not q.q02x32p.dequeue(cur, v, vWD):
-          yield false
-          vWD = WD
-          cur = q.q02x32p.consumer
-        yield true
     of qf08x32:
       var cur = q.q08x32p.consumer
       while true:
@@ -295,23 +271,31 @@ when isMainModule:
     var r = getMonoTime()
     var i: uint8 = 0
     if info.isMyFile:
-      while not (finished(p) and finished(c)):
-        if not finished(p) and p(ipc.headQ, i):
+      while true:
+        s = getMonoTime()
+        if p(ipc.headQ, i):
           echo 's', inNanoseconds(getMonoTime() - s)
           inc i
-          s = getMonoTime()
-        if not finished(c) and c(ipc.tailQ, i):
+        else:
+          echo "s miss"
+        r = getMonoTime()
+        if c(ipc.tailQ, i):
           echo 'r', inNanoseconds(getMonoTime() - r)
-          r = getMonoTime()
+        else:
+          echo "s miss"
     else:
       while not (finished(p) and finished(c)):
-        if not finished(c) and c(ipc.headQ, i):
+        r = getMonoTime()
+        if c(ipc.headQ, i):
           discard
           echo 'r', inNanoseconds(getMonoTime() - r)
-          r = getMonoTime()
-        if not finished(p) and p(ipc.tailQ, i):
+        else:
+          echo "r miss"
+        s = getMonoTime()
+        if p(ipc.tailQ, i):
           echo 's', inNanoseconds(getMonoTime() - s)
           inc i
-          s = getMonoTime()
+        else:
+          echo "s miss"
 
   main()
