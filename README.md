@@ -159,7 +159,6 @@ Single Producer (1 thread), Single Consumer (1 thread)
 
 |Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
-|24694|249|3951|0|0|
 |84|156|4024|0|0|
 |34|70|4052|0|0|
 |35|126|4142|0|0|
@@ -217,7 +216,6 @@ Multiple Producer (2 threads), Single Consumer (1 thread).
 
 |Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
-|1489|246|120717|0|0|
 |74|287|120760|1|0|
 |57|147|120850|0|0|
 |47|358|121162|0|0|
