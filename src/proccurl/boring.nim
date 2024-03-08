@@ -229,10 +229,10 @@ proc enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
   return  true
 
 
-template enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
+template enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
     q: ptr Queue[SLOTS, P, C, T];
     i: var Idx[SLOTS];
-    v: var T;
+    v: var TT;
     s: var IStat;
 ): bool =
   ## this version let you reuse vars
@@ -247,16 +247,16 @@ template enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
   ##   - vRD == RR means BUSY i, other thread is reading
   ##     - In a single   consumer, try same i again, it may be completed 
   ##     - In a multiple consumer, fetch i again (order safe) or try the same (order unsafe)
-  q.enqueue i, v, s, sizeof(T).uint32
+  q.enqueue i, v, s, sizeof(TT).uint32
 
 
-template enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
-    q:    ptr Queue[SLOTS, P, C, T];
-    v:    var T;
+template enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
+    q: ptr Queue[SLOTS, P, C, T];
+    v: var TT;
 ): bool =
-  var i = queue.producer
+  var i = q.producer
   var s = RD
-  q.enqueue i, v, s, sizeof(T).uint32
+  q.enqueue i, v, s, sizeof(TT).uint32
 
 
 proc dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
@@ -289,16 +289,26 @@ proc dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
   return true
 
 
-template dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
-    q:    ptr Queue[SLOTS, P, C, T];
-): Option[T] =
-  var v: T;
+template dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
+    q: ptr Queue[SLOTS, P, C, T];
+    v: TT
+): bool =
   var i = q.consumer;
   var s = WD;
-  if q.enqueue(i, v, s):
+  q.dequeue(i, v, s)
+
+
+template dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
+    q: ptr Queue[SLOTS, P, C, T];
+    TT: typedesc
+): Option[T] =
+  var i = q.consumer;
+  var s = WD;
+  var v: TT;
+  if q.dequeue(i, v, s):
     some(v)
   else:
-    none(T)
+    none(TT)
 
 
 proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](

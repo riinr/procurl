@@ -1,4 +1,4 @@
-import std/[cmdline, memfiles]
+import std/[memfiles]
 import boring
 
 const PAGE_SIZE = 4096
@@ -130,71 +130,32 @@ proc createIPCInfo*(headFormat, tailFormat: QueueFormat; memFileName: string; is
   )
 
 
-iterator producer*[T](q: QueueObj; v: var T): bool {.closure.} =
-  var vRD = RD
+template enqueue*[T](q: QueueObj; v: var T): bool =
   case q.format
     of qf08x32:
-      var cur = q.q08x32p.producer
-      while true:
-        while not q.q08x32p.enqueue(cur, v, vRD, sizeof(T).uint32):
-          yield false
-          vRD = RD
-          cur = q.q08x32p.producer
-        yield true
+      q.q08x32p.enqueue(v)
     of qf16x16:
-      var cur = q.q16x16p.producer
-      while true:
-        while not q.q16x16p.enqueue(cur, v, vRD, sizeof(T).uint32):
-          yield false
-          vRD = RD
-          cur = q.q16x16p.producer
-        yield true
+      q.q16x16p.enqueue(v)
     of qf32x08:
-      var cur = q.q32x08p.producer
-      while true:
-        while not q.q32x08p.enqueue(cur, v, vRD, sizeof(T).uint32):
-          yield false
-          vRD = RD
-          cur = q.q32x08p.producer
-        yield true
+      q.q32x08p.enqueue(v)
     else:
-      yield false
+      false
 
 
-iterator consumer*[T](q: QueueObj; v: var T): bool {.closure.} =
-  var vWD = WD
+template dequeue*[T](q: QueueObj; v: var T): bool=
   case q.format
     of qf08x32:
-      var cur = q.q08x32p.consumer
-      while true:
-        while not q.q08x32p.dequeue(cur, v, vWD):
-          yield false
-          vWD = WD
-          cur = q.q08x32p.consumer
-        yield true
+      q.q08x32p.dequeue(v)
     of qf16x16:
-      var cur = q.q16x16p.consumer
-      while true:
-        while not q.q16x16p.dequeue(cur, v, vWD):
-          yield false
-          vWD = WD
-          cur = q.q16x16p.consumer
-        yield true
+      q.q16x16p.dequeue(v)
     of qf32x08:
-      var cur = q.q32x08p.consumer
-      while true:
-        while not q.q32x08p.dequeue(cur, v, vWD):
-          yield false
-          vWD = WD
-          cur = q.q32x08p.consumer
-        yield true
+      q.q32x08p.dequeue(v)
     else:
-      yield false
+      false
 
 
 when isMainModule:
   import std/os
-  import std/[monotimes, times]
 
   proc qFormatFromParam(pos: int; isHead: bool): QueueFormat =
     let format =
@@ -263,30 +224,22 @@ when isMainModule:
         '"', "IsMyFile",    '"', ':', '"', ipc.info.isMyFile,    '"', ' ',
       "}}"
   
-    var write = producer[uint8]
-    var read  = consumer[uint8]
-    var s = getMonoTime()
-    var r = getMonoTime()
-    var i: uint8 = 0
+    var r: uint8 = 0
+    var w: uint8 = 0
+
     if info.isMyFile:
       while true:
-        s = getMonoTime()
-        if ipc.headQ.write i:
-          echo 's', inNanoseconds(getMonoTime() - s)
-          inc i
-        r = getMonoTime()
-        if ipc.tailQ.read i:
-          echo 'r', inNanoseconds(getMonoTime() - r)
+        if ipc.headQ.enqueue w:
+          inc w
+          echo 'w', w
+        if ipc.tailQ.dequeue r:
+          echo 'r', r
     else:
       while true:
-        r = getMonoTime()
-        if ipc.headQ.read i:
-          discard
-          echo 'r', inNanoseconds(getMonoTime() - r)
-          echo 'v', i
-        s = getMonoTime()
-        if ipc.tailQ.write i:
-          echo 's', inNanoseconds(getMonoTime() - s)
-          inc i
+        if ipc.headQ.dequeue r:
+          echo 'r', r
+        if ipc.tailQ.enqueue w:
+          inc w
+          echo 'w', w
 
   main()
