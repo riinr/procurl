@@ -6,7 +6,7 @@
 # Copy different memory sizes between 1024 bytes and 507 KB, 1000 times
 # Collect top 5 on bytes per tick
 # Sort by number of times one size reached top 5
-V="${1:-./memcopybench}"
+V="${1:-./bin/memcopy-release}"
 echo $V
 
 for i in `seq 1 1000`; do $V|sort -h -k 5|tail -n 5; done|sort -h|cut -d',' -f1|uniq -c|sort -h|tail -5|sort -h -k 2

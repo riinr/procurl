@@ -137,7 +137,7 @@ Note: benchmarking is hard.
 
 ### MemCopy
 
-Tries to measure the most efficient size to copy, check [memcopybench.sh](./memcpybench/memcopybench.sh) for more info and results.
+Tries to measure the most efficient size to copy, check [memcopy.sh](./bench/memcpy/memcopy.sh) and [with more args][./bench/memcpy/compile.sh]for more info and results.
 
 But ~8KB was the most efficient copy size, 
 
