@@ -22,7 +22,7 @@
 
   files.alias.benchc = ''
     # Compiles all benchmarks
-    find $PRJ_ROOT/bench -name '*.nim' \
+    find $PRJ_ROOT/bench -name '*.nim' -maxdepth 1 \
      -execdir nim c \
        --mm:arc \
        --passC:"-march=native" \
@@ -35,7 +35,7 @@
   '';
   files.alias.benchr = ''
     # Run all benchmarks
-    for i in $(find $PRJ_ROOT/bench -type f -executable); do
+    for i in $(find $PRJ_ROOT/bench -maxdepth 1 -type f -executable); do
       echo $i
       $i
     done
