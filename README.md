@@ -152,6 +152,15 @@ Tries to measure two or more threads sending nanoseconds to each other, with Rin
 - i5-1240P/LPDDR5 5200MHz 
 - Linux T1 6.1.69 NixOS SMP PREEMPT DYNAMIC Dec 20 16:00:29 UTC 2023 x86-64
 
+![image](https://github.com/riinr/procurl/assets/863299/0fb218f9-e5ad-4d1b-b58f-17d2bde64a91)
+
+
+
+- Sending: how much time producer took to push it to queue (it doesn't count retries)
+- Receiving: how much time consumer took to pull it from queue (it doesn't count retries)
+- Latency: how old message was, when readed
+- Send Retries: how many retries until send was succefull
+- Receving Retries: how many retries until got a message.
 
 #### SPSC
 
