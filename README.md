@@ -149,21 +149,42 @@ I don't have any AMD to test.
 
 <img src="https://github.com/riinr/procurl/assets/863299/0fb218f9-e5ad-4d1b-b58f-17d2bde64a91" width="300" />
 <br/>
-Tries to measure two or more threads sending nanoseconds to each other, with Ring Buffer that have 10 slots (max entries before retry).
+
+Measure one or two threads sending nanoseconds (uint64) to other one or two threads, with a Ring Buffer that have 10 slots.
 
 - i5-1240P/LPDDR5 5200MHz 
 - Linux T1 6.1.69 NixOS SMP PREEMPT DYNAMIC Dec 20 16:00:29 UTC 2023 x86-64
+
+Headers meaning:
+
 - Sending: how much time producer took to push it to queue (it doesn't count retries)
 - Receiving: how much time consumer took to pull it from queue (it doesn't count retries)
-- Latency: how old message was, when readed
+- Age: how old message was, when read
 - Send Retries: how many retries until send was succefull
 - Receving Retries: how many retries until got a message.
+
+The perfect scenario:
+
+- Producer thread to take 1ns to send with 0 retries,
+- Consumer thread to start 1ns after and take 1ns to receive, with 0 retries,
+- Age should be 3ns
+
+The realistic scenario:
+- Avg precision is ~80ns
+  - Even if operation takes 1ns it would be reported as ~80ns
+- Producer thread to take 200ns to send with 0 retries
+  - If consumer is working on that and is at least as fast as producer
+  - Or else queue may be full, 1 to infinity retries
+- Consumer thread to start 200.000ns after and take 200ns to receive, with 0 retries,
+  - Staring a thread can take 50ms (50.000.000ns) or more
+- Age will be ~2.000ns to  50ms (50.000.000ns)
+  - Increasing or decreasing depending on production rate
 
 #### SPSC
 
 Single Producer (1 thread), Single Consumer (1 thread)
 
-|Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
+|Sending (ns)|Receiving (ns)|Age (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
 |84|156|4024|0|0|
 |34|70|4052|0|0|
@@ -220,7 +241,7 @@ Single Producer (1 thread), Single Consumer (1 thread)
 
 Multiple Producer (2 threads), Single Consumer (1 thread).
 
-|Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
+|Sending (ns)|Receiving (ns)|Age (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
 |74|287|120760|1|0|
 |57|147|120850|0|0|
@@ -277,7 +298,7 @@ Multiple Producer (2 threads), Single Consumer (1 thread).
 
 Single Producer (1 thread), Multiple Consumer (2 threads)
 
-|Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
+|Sending (ns)|Receiving (ns)|Age (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
 |809|280|8704|0|0|
 |60|304|8955|0|0|
@@ -335,7 +356,7 @@ Single Producer (1 thread), Multiple Consumer (2 threads)
 
 Multiple Producer (2 threads), Multiple Consumer (2 threads)
 
-|Sending (ns)|Receiving (ns)|Latency (ns)|Send Retries|Receiving Retries|
+|Sending (ns)|Receiving (ns)|Age (ns)|Send Retries|Receiving Retries|
 | -| -| -| -| -|
 |1402|333|26486|0|0|
 |89|164|26530|0|0|
@@ -392,11 +413,11 @@ Multiple Producer (2 threads), Multiple Consumer (2 threads)
 
 ### IPC
 
-The IPC part of this code, also has main function that sends uint8 to other process forever.
+The IPC module, also has main function that sends uint8 to other process forever.
 
 With 2 process, each with 02 RingBuffer (I/O), each with 2 slots and 32bytes.
 
-Different from the RingBuffer benchmarks, this only show how much each proccess requires to fire and forget.
+But only shows how much each proccess requires to fire and forget.
 
 |     |Sending (ns)|Receiving (ns)|
 |-    |           -|             -|
@@ -413,4 +434,3 @@ Different from the RingBuffer benchmarks, this only show how much each proccess 
 |98%  |627         |597           |
 |99%  |807         |740           |
 |max  |31445       |89382         |
-
