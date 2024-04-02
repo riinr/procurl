@@ -2,19 +2,17 @@ import std/[monotimes, times]
 import proccurl/boring
 
 const SLOTS* {.intdefine: "boring.benchslots".} = 10
-const ARENA_LEN = static sizeOfQ[SLOTS, MonoTime]()
 const RUNS* {.intdefine: "boring.benchruns".} = 100
 
-var arena: array[ARENA_LEN, uint8]
+var queue = newQueue[SLOTS, SP[SLOTS], SC[SLOTS], MonoTime]()
 var results: array[RUNS, array[4, MonoTime]]
 var attempts: array[RUNS, array[2, int]]
 
 
 proc producer(): void {.thread.} =
-  var queue = newQueue[SLOTS, SP[SLOTS], SC[SLOTS], MonoTime](arena.addr)
-  var cur   = queue.producer
-  var vRD   = RD
-  var t     = getMonoTime()
+  var cur = queue.producer
+  var vRD = RD
+  var t   = getMonoTime()
   for i in 0..high(results):
     t = getMonoTime()
     var a = 0
@@ -28,11 +26,10 @@ proc producer(): void {.thread.} =
 
 
 proc consumer(): void {.thread.} =
-  var queue = newQueue[SLOTS, SP[SLOTS], SC[SLOTS], MonoTime](arena.addr)
-  var cur   = queue.consumer
-  var vWD   = WD
-  var t     = getMonoTime()
-  var ttt   = getMonoTime()
+  var cur = queue.consumer
+  var vWD = WD
+  var t   = getMonoTime()
+  var ttt = getMonoTime()
   for i in 0..high(results):
     ttt = getMonoTime()
     var a = 0

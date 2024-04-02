@@ -2,10 +2,9 @@ import std/[monotimes, times, atomics]
 import proccurl/boring
 
 const SLOTS* {.intdefine: "boring.benchslots".} = 10
-const ARENA_LEN = static  sizeOfQ[SLOTS, MonoTime]()
 const RUNS* {.intdefine: "boring.benchruns".} = 100
 
-var arena: array[ARENA_LEN, uint8]
+var queue = newQueue[SLOTS, MP[SLOTS], MC[SLOTS], MonoTime]()
 var results: array[RUNS, array[4, MonoTime]]
 var attempts: array[RUNS, array[2, int]]
 var pidx: Atomic[int]
@@ -13,11 +12,10 @@ var cidx: Atomic[int]
 
 
 proc producer(thr: int): void {.thread.} =
-  var queue = newQueue[SLOTS, MP[SLOTS], MC[SLOTS], MonoTime](arena.addr)
-  var cur   = queue.producer
-  var vRD   = RD
-  var t     = getMonoTime()
-  var ii    = pidx.load(moRelaxed)
+  var cur = queue.producer
+  var vRD = RD
+  var t   = getMonoTime()
+  var ii  = pidx.load(moRelaxed)
 
   for i in 0..<(RUNS div 2):
     t = getMonoTime()
@@ -34,12 +32,11 @@ proc producer(thr: int): void {.thread.} =
 
 
 proc consumer(thr: int): void {.thread.} =
-  var queue = newQueue[SLOTS, MP[SLOTS], SC[SLOTS], MonoTime](arena.addr)
-  var cur   = queue.consumer
-  var vWD   = WD
-  var t     = getMonoTime()
-  var ttt   = getMonoTime()
-  var ii    = cidx.load(moRelaxed)
+  var cur = queue.consumer
+  var vWD = WD
+  var t   = getMonoTime()
+  var ttt = getMonoTime()
+  var ii  = cidx.load(moRelaxed)
 
   for i in 0..<(RUNS div 2):
     ttt = getMonoTime()

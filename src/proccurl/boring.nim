@@ -34,21 +34,82 @@ const PAGE* {.intdefine: "boring.mempage".} = 4096 # 4 KB
 
 type
   IStat* = enum
-    ## STATE MACHINE RD -> WW -> ( WD || LD) -> RR -> RD
+    ## STATE MACHINE RD -> WW -> WD  -> RR -> RD
     RD,          ## Reader Done:     can  push
     WW,          ## Writer Writing:  wait before shift
     WD,          ## Writer Done:     can  shift
     RR,          ## Reader Reading:  wait before push
-    LD           ## Linker Done:     can  shift but only if you have link to it
 
   Idx*[SLOTS: static int] = distinct range[0..(SLOTS - 1)]
 
-  Ram*[SLOTS: static int, T] = object
-    ## Random Access Memory
-    stat*:   array[SLOTS, Atomic[IStat]]   ## Slot status
-    sizes*:  array[SLOTS, Atomic[uint32]]  ## Slot content len
-    data*:   array[SLOTS, T]               ## Slot content bytes
-    links*:  array[SLOTS, Idx[SLOTS]]      ## Link to other slot if one is not enough
+  Slot[T] = object
+    stat*: Atomic[IStat]   ## Slot status
+    size*: uint32          ## Slot content len
+    data*: T               ## Slot content bytes
+
+  Ram*[SLOTS: static int, T] = array[SLOTS, Slot[T]]
+
+
+proc `$`*[T](r: ptr Slot[T]): string =
+  r.repr
+
+
+template state*     [T](r: ptr Slot[T]; v: IStat): void =
+  ## Set Slot stat
+  r.stat.store cast[uint8](v), moAcquireRelease
+
+
+template state*     [T](r: ptr Slot[T]): IStat =
+  ## Get Slot stat
+  cast[IStat](r.stat.load moAcquireRelease)
+
+
+template start_reading* [T](
+    r: ptr Slot[T];
+    s: var IStat;
+): bool =
+  ## try to set Slot as reading
+  ##
+  ## If false, returns false and changes `s` to reason, if reason is:
+  ## - RR means other thread is already reading from Slot
+  ## - RD means it is empty shouldn't read from Slot
+  ## - WW means it is not ready to read Slot
+  ##
+  ## If true, returns true and sets internal state to RR (reader reading)
+  ##
+  r.stat.compareExchangeWeak s, RR, moAcquire, moRelaxed
+
+
+template stop_reading*[T](
+    r: ptr Slot[T];
+): void =
+  ## set the internal state of Slot[i] to reader done
+  ## freeing it so other threads can write
+  r.stat.store RD, moRelease
+
+
+template start_writing* [T](
+    r: ptr Slot[T];
+    s: var IStat
+): bool =
+  ## try to set Slot as writing
+  ##
+  ## If false, returns false and changes `s` to reason, if reason is:
+  ## - WW means other thread is writing into Slot
+  ## - WD means it is full shouldn't overwrite Slot
+  ## - RR means is not ready to write in Slot
+  ##
+  ## If true, returns true and sets internal state to WW (writer writing)
+  ##
+  r.stat.compareExchangeWeak s, WW, moAcquire, moRelaxed
+
+
+template stop_writing*[T](
+  r: ptr Slot[T];
+): void =
+  ## set the internal state of Slot to writer done
+  ## freeing it so other threads can read
+  r.stat.store WD, moRelease
 
 
 proc `$`[SLOTS: static int](idx: Idx[SLOTS]): string =
@@ -56,66 +117,9 @@ proc `$`[SLOTS: static int](idx: Idx[SLOTS]): string =
   $(cast[uint32](idx))
 
 
-template `[]=`*[SLOTS: static int, T](r: var Ram[SLOTS, T]; i: Idx[SLOTS], v: T): void =
-  ## set data into RAM[i]
-  r.data[i] = v
-
-template `[]` *[SLOTS: static int, T](r: var Ram[SLOTS, T]; i: Idx[SLOTS]): T =
+template `[]` *[SLOTS: static int, T](r: var Ram[SLOTS, T]; i: Idx[SLOTS]): ptr Slot[T] =
   ## get data from RAM[i]
-  r.data[i]
-
-template start_reading* [SLOTS: static int, T](
-    r: var Ram[SLOTS, T];
-    i: Idx[SLOTS];
-    s: var IStat;
-): bool =
-  ## try to set RAM[i] as reading
-  ##
-  ## If false, returns false and changes `s` to reason, if reason is:
-  ## - RR means other thread is already reading from RAM[i]
-  ## - RD means it is empty shouldn't read from RAM[i]
-  ## - LD means it is reserved to other thread with link to RAM[i]
-  ## - WW means it is not ready to read RAM[i]
-  ##
-  ## If true, returns true and sets internal state to RR (reader reading)
-  ##
-  r.stat[cast[uint32](i)].compareExchangeWeak(s, RR, moRelaxed, moRelaxed)
-
-
-template stop_reading*[SLOTS: static int, T](
-    r: var Ram[SLOTS, T];
-    i: Idx[SLOTS];
-): void =
-  ## set the internal state of RAM[i] to reader done
-  ## freeing it so other threads can write
-  r.stat[cast[uint32](i)].store RD, moRelaxed
-
-
-template start_writing* [SLOTS: static int, T](
-    r: var Ram[SLOTS, T];
-    i: Idx[SLOTS];
-    s: var IStat
-): bool =
-  ## try to set RAM[i] as writing
-  ##
-  ## If false, returns false and changes `s` to reason, if reason is:
-  ## - WW means other thread is writing into RAM[i]
-  ## - WD means it is full shouldn't overwrite RAM[i]
-  ## - RR means is not ready to write in RAM[i]
-  ## - LD means it is reserved to other thread with link to RAM[i]
-  ##
-  ## If true, returns true and sets internal state to WW (writer writing)
-  ##
-  r.stat[cast[uint32](i)].compareExchangeWeak(s, WW, moRelaxed, moRelaxed)
-
-
-template stop_writing*[SLOTS: static int, T](
-  r: var Ram[SLOTS, T];
-  i: Idx[SLOTS];
-): void =
-  ## set the internal state of RAM[i] to writer done
-  ## freeing it so other threads can read
-  r.stat[cast[uint32](i)].store WD, moRelaxed
+  r[cast[uint32](i)].addr
 
 
 type
@@ -139,15 +143,15 @@ type
   C*[SLOTS: static int] = SC[SLOTS]|MC[SLOTS]  ## Generic Consumer
 
 
-template producer*[SLOTS: static int](p: SP[SLOTS]): Idx[SLOTS] =
+template producer*[SLOTS: static int](p: ptr SP[SLOTS]): Idx[SLOTS] =
   ## Get producer current positon
   p.writer
 
-template producer*[SLOTS: static int](p: MP[SLOTS]): Idx[SLOTS] =
+template producer*[SLOTS: static int](p: ptr MP[SLOTS]): Idx[SLOTS] =
   ## Get producer current positon
   p.writer.load moRelaxed
 
-template inc*     [SLOTS: static int](p: var SP[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
+template inc*     [SLOTS: static int](p: ptr SP[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
   ## Move producer to next position
   var writer = cast[uint32](prev) + 1
   if writer == SLOTS:
@@ -155,7 +159,7 @@ template inc*     [SLOTS: static int](p: var SP[SLOTS]; prev: Idx[SLOTS]): Idx[S
   p.writer = cast[Idx[SLOTS]](writer)
   p.writer
 
-template inc*     [SLOTS: static int](p: var MP[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
+template inc*     [SLOTS: static int](p: ptr MP[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
   ## Move producer to next position
   var writer = cast[uint32](prev) + 1
   if writer == SLOTS:
@@ -163,19 +167,19 @@ template inc*     [SLOTS: static int](p: var MP[SLOTS]; prev: Idx[SLOTS]): Idx[S
   p.writer.store cast[Idx[SLOTS]](writer), moRelaxed
   cast[Idx[SLOTS]](writer)
 
-template inc*     [SLOTS: static int](p: var P[SLOTS]): Idx[SLOTS] =
+template inc*     [SLOTS: static int](p: ptr P[SLOTS]): Idx[SLOTS] =
   ## Move producer to next position
   p.inc p.producer
 
-template consumer*[SLOTS: static int](c: SC[SLOTS]): Idx[SLOTS] =
+template consumer*[SLOTS: static int](c: ptr SC[SLOTS]): Idx[SLOTS] =
   ## Get consumer current positon
   c.reader
 
-template consumer*[SLOTS: static int](c: MC[SLOTS]): Idx[SLOTS] =
+template consumer*[SLOTS: static int](c: ptr MC[SLOTS]): Idx[SLOTS] =
   ## Get consumer current positon
   c.reader.load moRelaxed
 
-template dec*     [SLOTS: static int](c: var SC[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
+template dec*     [SLOTS: static int](c: ptr SC[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
   ## Move consumer to next positon
   var reader = cast[uint32](prev) + 1
   if reader == SLOTS:
@@ -183,7 +187,7 @@ template dec*     [SLOTS: static int](c: var SC[SLOTS]; prev: Idx[SLOTS]): Idx[S
   c.reader = cast[Idx[SLOTS]](reader)
   c.reader
 
-template dec*     [SLOTS: static int](c: var MC[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
+template dec*     [SLOTS: static int](c: ptr MC[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
   ## Move consumer to next positon
   var reader = cast[uint32](prev) + 1
   if reader == SLOTS:
@@ -192,12 +196,17 @@ template dec*     [SLOTS: static int](c: var MC[SLOTS]; prev: Idx[SLOTS]): Idx[S
   cast[Idx[SLOTS]](reader)
 
 
-template dec*     [SLOTS: static int](c: var C[SLOTS]): Idx[SLOTS] =
+template dec*     [SLOTS: static int](c: ptr C[SLOTS]): Idx[SLOTS] =
   ## Move consumer to next positon
   c.dec c.consumer
 
 
 type
+  QStat* = enum
+    qsDirty,  ## Queue wasn't initialized
+    qsWiping, ## Other thread is working on make it ready
+    qsReady,  ## Queue is ready to use
+
   Queue*[
     SLOTS: static int,
     P: P[SLOTS],
@@ -205,82 +214,47 @@ type
     T
   ] = object
     ## Your boring buffer queue with SLOTS available
-    a*: Ram[SLOTS, T]  ## to store our data and position status
+    s*: Atomic[QStat]  ## check if Queue is read to use
     p*: P              ## can be SP (single producer) or MP (multiple producers)
     c*: C              ## can be SC (single consumer) or SP (multiple consumers)
+    a*: Ram[SLOTS, T]  ## to store our data and position status
 
 
 proc sizeOfQ*         [SLOTS: static int, T](): int =
   ## Total size of our Queue
   sizeof Queue[SLOTS, SP[SLOTS], SC[SLOTS], T]
 
-template `$`*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): string =
-  ## Convert our queue to string
-  $type(q)
-
-template `[]=`*       [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS], v: T): void =
-  ## Set Queue[i] data
-  q.a.data[cast[uint32](i)] = v
-
-template `[]`*        [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): T =
-  ## Get Queue[i] data
-  q.a.data[cast[uint32](i)]
-
-template `stats`*     [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS], v: IStat): void =
-  ## Set Queue[i] stat
-  q.a.stat[cast[uint32](i)].store cast[uint8](v), moRelaxed
-
-template `stats`*     [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): IStat =
-  ## Get Queue[i] stat
-  cast[IStat](q.a.stat[cast[uint32](i)].load moRelaxed)
-
-template `sizes`*     [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS], v: uint32): void =
-  ## Set Queue[i] size
-  q.a.sizes[cast[uint32](i)].store v, moRelaxed
-
-template `sizes`*     [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): uint32 =
-  ## Get Queue[i] size
-  q.a.sizes[cast[uint32](i)].load moRelaxed
-
-template start_enqueuing* [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]; s: var IStat): bool =
-  ## Init an enqueue transation
-  q.a.start_writing i, s
-
-template start_dequeuing* [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]; s: var IStat): bool =
-  ## Init an dequeue transation
-  q.a.start_reading i, s
-
-template stop_enqueuing*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): void =
-  ## Commit an enqueue transation
-  q.a.stop_writing i
-
-template stop_dequeuing*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): void =
-  ## Commit an dequeue transation
-  q.a.stop_reading i
-
-template inc*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move Queue to next producer positon
-  q.p.inc prev
-
-template dec*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move Queue to next consumer positon
-  q.c.dec prev
-
-template inc*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): Idx[SLOTS] =
-  ## Move Queue to next producer positon
-  q.p.inc
-
-template dec*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): Idx[SLOTS] =
-  ## Move Queue to next consumer positon
-  q.c.dec
+template `[]`*        [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): ptr Slot[T] =
+  ## Get Queue[i] Slot
+  q.a[i]
 
 template producer*    [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): Idx[SLOTS] =
   ## Get Queue current producer position
-  q.p.producer
+  q.p.addr.producer
 
 template consumer*    [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): Idx[SLOTS] =
   ## Get Queue current consumer position
-  q.c.consumer
+  q.c.addr.consumer
+
+template inc*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; prev: Idx[SLOTS]): Idx[SLOTS] =
+  ## Move Queue to next producer positon
+  q.p.addr.inc prev
+
+template dec*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; prev: Idx[SLOTS]): Idx[SLOTS] =
+  ## Move Queue to next consumer positon
+  q.c.addr.dec prev
+
+template inc*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): Idx[SLOTS] =
+  ## Move Queue to next producer positon
+  q.p.addr.inc
+
+template dec*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): Idx[SLOTS] =
+  ## Move Queue to next consumer positon
+  q.c.addr.dec
+
+proc `$`*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): string =
+  ## Convert our queue to string
+  q.repr
 
 
 proc enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
@@ -294,22 +268,22 @@ proc enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
   ## BEWARE of side effects
   ##
   ## Not only in queue:
-  ## - i    will be updated with next position only if done
-  ## - s  will change when FULL or BUSY (this happen very often)
+  ## - i will be updated with next position only if done
+  ## - s will change when FULL or BUSY (this happen very often)
   ##   - s == WD means FULL
   ##   - s == WW means BUSY i, other thread is enqueuing
   ##     - try fetching i again, it may be changed
   ##   - s == RR means BUSY i, other thread is dequeuing
   ##     - In a single   consumer, try same i again, it may be completed 
   ##     - In a multiple consumer, fetch i again (order safe) or try the same (order unsafe)
-  if not q.start_enqueuing(i, s):
+  var slot = q[i]
+  if not slot.start_writing(s):
     return false
 
-  let old = i
   i = q.inc i
-  q.sizes old, l
-  copyMem q[old].addr, v.addr, l
-  q.stop_enqueuing old
+  slot.size = l
+  copyMem slot.data.addr, v.addr, l
+  stop_writing slot
   return  true
 
 
@@ -341,7 +315,8 @@ proc dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
   ## BEWARE of side effects
   ##
   ## Not only in queue or buffer:
-  ## - buff will change when SUCCEDED
+  ## - v will change when SUCCEDED only if SUCCEDED
+  ## - i will be updated with next position only if SUCCEDED
   ## - s  will change when EMPTY or BUSY (this happen very often)
   ##   - s == RD means i position is EMPTY
   ##   - s == RR means i position is BUSY, other thread is dequeuing
@@ -349,13 +324,13 @@ proc dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
   ##   - s == WW means i position is BUSY, other thread is enqueuing
   ##     - In a single   consumer, try same i again, it may be completed 
   ##     - In a multiple consumer, fetch i again (order safe) or try the same (order unsafe)
-  if not q.start_dequeuing(i, s):
+  var slot = q[i]
+  if not slot.start_reading(s):
     return false
 
-  let old = i
   i = q.dec i
-  copyMem v.addr, q[old].addr, q.sizes old
-  q.stop_dequeuing old
+  copyMem v.addr, slot.data.addr, slot.size
+  stop_reading slot
   return true
 
 
@@ -390,8 +365,7 @@ proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
   ## - P    : Single (SP) or Multiple (MP) producers
   ## - C    : Single (SC) or Multiple (MC) consumers
   ## - T    : object Type
-  ##
-  cast[ptr Queue[SLOTS, P, C, T]](arena)
+  result = cast[ptr Queue[SLOTS, P, C, T]](arena)
 
 
 proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](): ptr Queue[SLOTS, P, C, T] =
@@ -402,5 +376,4 @@ proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](): ptr Queue[SLOT
   ## - C    : Single (SC) or Multiple (MC) consumers
   ## - T    : object Type
   ##
-  let arena = createShared(array[static sizeOfQ[SLOTS, T](), uint8])
-  cast[ptr Queue[SLOTS, P, C, T]](arena.addr)
+  result = createShared(Queue[SLOTS, P, C, T])
