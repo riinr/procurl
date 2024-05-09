@@ -146,8 +146,9 @@ If we define architecture as Intel, could be ~12KB but would make binary less po
 I don't have any AMD to test.
 
 ### Ring Buffer
+<img src="https://github.com/riinr/procurl/assets/863299/06acb32c-8cf0-41bc-89c7-5d3710ad536a" width="300" />
 
-<img src="https://github.com/riinr/procurl/assets/863299/0fb218f9-e5ad-4d1b-b58f-17d2bde64a91" width="300" />
+<br/>
 <br/>
 
 Measure one or two threads sending nanoseconds (uint64) to other one or two threads, with a Ring Buffer that have 10 slots.
