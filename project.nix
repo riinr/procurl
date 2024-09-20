@@ -20,9 +20,15 @@
   # configure direnv .envrc file
   files.direnv.enable = true;
 
+  files.alias.docs = ''
+    # Compiles all docs
+    find $PRJ_ROOT/src/proccurl/ -maxdepth 1 -name '*.nim' \
+     -execdir nim doc {} \;
+  '';
+
   files.alias.benchc = ''
     # Compiles all benchmarks
-    find $PRJ_ROOT/bench -name '*.nim' -maxdepth 1 \
+    find $PRJ_ROOT/bench -maxdepth 1 -name '*.nim' \
      -execdir nim c \
        --mm:arc \
        --passC:"-march=native" \
