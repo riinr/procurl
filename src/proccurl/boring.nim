@@ -42,7 +42,7 @@ type
 
   Idx*[SLOTS: static int] = distinct range[0..(SLOTS - 1)]
 
-  Slot[T] = object
+  Slot*[T] = object
     stat*: Atomic[IStat]   ## Slot status
     size*: uint32          ## Slot content len
     data*: T               ## Slot content bytes
@@ -88,7 +88,7 @@ template stop_reading*[T](
   r.stat.store RD, moRelease
 
 
-template start_writing* [T](
+template start_writing*[T](
     r: ptr Slot[T];
     s: var IStat
 ): bool =
@@ -117,7 +117,7 @@ proc `$`[SLOTS: static int](idx: Idx[SLOTS]): string =
   $(cast[uint32](idx))
 
 
-template `[]` *[SLOTS: static int, T](r: var Ram[SLOTS, T]; i: Idx[SLOTS]): ptr Slot[T] =
+template `[]`*[SLOTS: static int, T](r: var Ram[SLOTS, T]; i: Idx[SLOTS]): ptr Slot[T] =
   ## get data from RAM[i]
   r[cast[uint32](i)].addr
 
@@ -144,15 +144,15 @@ type
 
 
 template producer*[SLOTS: static int](p: ptr SP[SLOTS]): Idx[SLOTS] =
-  ## Get producer current positon
+  ## Get producer pointer positon
   p.writer
 
 template producer*[SLOTS: static int](p: ptr MP[SLOTS]): Idx[SLOTS] =
-  ## Get producer current positon
+  ## Get producer pointer positon
   p.writer.load moRelaxed
 
 template inc*     [SLOTS: static int](p: ptr SP[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move producer to next position
+  ## Move producer pointer to next position
   var writer = cast[uint32](prev) + 1
   if writer == SLOTS:
     writer = 0
@@ -160,7 +160,7 @@ template inc*     [SLOTS: static int](p: ptr SP[SLOTS]; prev: Idx[SLOTS]): Idx[S
   p.writer
 
 template inc*     [SLOTS: static int](p: ptr MP[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move producer to next position
+  ## Move producer pointer to next position
   var writer = cast[uint32](prev) + 1
   if writer == SLOTS:
     writer = 0
@@ -168,11 +168,11 @@ template inc*     [SLOTS: static int](p: ptr MP[SLOTS]; prev: Idx[SLOTS]): Idx[S
   cast[Idx[SLOTS]](writer)
 
 template inc*     [SLOTS: static int](p: ptr P[SLOTS]): Idx[SLOTS] =
-  ## Move producer to next position
+  ## Move producer pointer to next position
   p.inc p.producer
 
 template consumer*[SLOTS: static int](c: ptr SC[SLOTS]): Idx[SLOTS] =
-  ## Get consumer current positon
+  ## Get consumer pointer current positon
   c.reader
 
 template consumer*[SLOTS: static int](c: ptr MC[SLOTS]): Idx[SLOTS] =
@@ -188,7 +188,7 @@ template dec*     [SLOTS: static int](c: ptr SC[SLOTS]; prev: Idx[SLOTS]): Idx[S
   c.reader
 
 template dec*     [SLOTS: static int](c: ptr MC[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move consumer to next positon
+  ## Move consumer pointer to next positon
   var reader = cast[uint32](prev) + 1
   if reader == SLOTS:
     reader = 0
@@ -197,7 +197,7 @@ template dec*     [SLOTS: static int](c: ptr MC[SLOTS]; prev: Idx[SLOTS]): Idx[S
 
 
 template dec*     [SLOTS: static int](c: ptr C[SLOTS]): Idx[SLOTS] =
-  ## Move consumer to next positon
+  ## Move consumer pointer to next positon
   c.dec c.consumer
 
 
@@ -252,7 +252,7 @@ template dec*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Qu
   ## Move Queue to next consumer positon
   q.c.addr.dec
 
-proc `$`*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): string =
+proc `$`*             [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): string =
   ## Convert our queue to string
   q.repr
 
@@ -264,7 +264,7 @@ proc enqueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
     s: var IStat;
     l: uint32;
 ): bool =
-  ## this version let you reuse vars
+  ## This version let you reuse vars
   ## BEWARE of side effects
   ##
   ## Not only in queue:
@@ -311,7 +311,7 @@ proc dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
     v: var TT;
     s: var IStat;
 ): bool =
-  ## this version let you reuse vars
+  ## This version let you reuse vars
   ## BEWARE of side effects
   ##
   ## Not only in queue or buffer:
