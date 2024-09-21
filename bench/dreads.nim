@@ -109,12 +109,12 @@ when isMainModule:
     echo "Tasks:    \t", MAX_ITEMS, "\t", t[MAX_ITEMS - 1].stat.load
     echo "Setup:    \t", (args[0][] - epoc).ns, "\t", "         \t", "Starting first thread"
     echo "Send:     \t", (ts - args[0][]).ns,   "\t", ((ts - args[0][]) div MAX_ITEMS).ns, "/task\t", "Sending tasks to threads"
-    echo "Send  1st:\t", "     \t", (st2[0]).ns, " +/-", 100.ns, "\t ", st2[1] , " tasks\t", "Time scheduling tasks"
-    echo "Send  2nd:\t", "     \t", (nd2[0]).ns, " +/-", 100.ns, "\t ", nd2[1] , " tasks\t", "Time scheduling tasks"
-    echo "Send  3rd:\t", "     \t", (rd2[0]).ns, " +/-", 100.ns, "\t ", rd2[1] , " tasks\t", "Time scheduling tasks"
-    echo "Delay 1st:\t", "     \t", (st1[0]).ns, " +/-", 100.ns, "\t ", st1[1] , " tasks\t", "Time between sent and start running task"
-    echo "Delay 2nd:\t", "     \t", (nd1[0]).ns, " +/-", 100.ns, "\t ", nd1[1] , " tasks\t", "Time between sent and start running task"
-    echo "Delay 3rd:\t", "     \t", (rd1[0]).ns, " +/-", 100.ns, "\t ", rd1[1] , " tasks\t", "Time between sent and start running task"
+    echo "Send  1st:\t", (st2[0]).ns, "\t ", st2[1] , " tasks\t", "Time scheduling tasks, precision", " +/-", 100.ns
+    echo "Send  2nd:\t", (nd2[0]).ns, "\t ", nd2[1] , " tasks\t", "Time scheduling tasks, precision", " +/-", 100.ns
+    echo "Send  3rd:\t", (rd2[0]).ns, "\t ", rd2[1] , " tasks\t", "Time scheduling tasks, precision", " +/-", 100.ns
+    echo "Delay 1st:\t", (st1[0]).ns, "\t ", st1[1] , " tasks\t", "Time between sent and start running task, precision", " +/-", 100.ns
+    echo "Delay 2nd:\t", (nd1[0]).ns, "\t ", nd1[1] , " tasks\t", "Time between sent and start running task, precision", " +/-", 100.ns
+    echo "Delay 3rd:\t", (rd1[0]).ns, "\t ", rd1[1] , " tasks\t", "Time between sent and start running task, precision", " +/-", 100.ns
     echo "Join:     \t", (ta - ts).ns,          "\t", "         \t", "Waiting all tasks to complete"
     echo "Snd+Join: \t", (ta - args[0][]).ns,   "\t", ((ta - args[0][]) div MAX_ITEMS).ns, "/task\t", "Send + Join"
     echo "Total:    \t", (ta - epoc).ns
