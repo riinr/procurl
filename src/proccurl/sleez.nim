@@ -29,21 +29,33 @@ converter su* (t: NanoSeconds):  MicroSeconds = cast[MicroSeconds](cast[int64](t
 
 
 converter `$`*(t: Seconds):      string =
-  $cast[int64](t) & "s"
+  if cast[int64](t) < 100:
+    if cast[int64](t) < 10: "00" & $cast[int64](t) & "s"
+    else: "0" & $cast[int64](t) & "s"
+  else: $cast[int64](t) & "s"
 
 converter `$`*(t: MiliSeconds):  string =
   if cast[int64](t.ss) == 0:
-    $cast[int64](t) & "ms"
+    if cast[int64](t) < 100:
+      if cast[int64](t) < 10: "00" & $cast[int64](t) & "ms"
+      else: "0" & $cast[int64](t) & "ms"
+    else: $cast[int64](t) & "ms"
   else: $t.ss
 
 converter `$`*(t: MicroSeconds): string =
   if cast[int64](t.sm) == 0:
-    $cast[int64](t) & "us"
+    if cast[int64](t) < 100:
+      if cast[int64](t) < 10: "00" & $cast[int64](t) & "us"
+      else: "0" & $cast[int64](t) & "us"
+    else: $cast[int64](t) & "us"
   else: $t.sm
 
 converter `$`*(t: NanoSeconds):  string =
   if cast[int64](t.su) == 0:
-    $cast[int64](t) & "ns"
+    if cast[int64](t) < 100:
+      if cast[int64](t) < 10: "00" & $cast[int64](t) & "ns"
+      else: "0" & $cast[int64](t) & "ns"
+    else: $cast[int64](t) & "ns"
   else: $t.su
 
 
