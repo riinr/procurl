@@ -17,16 +17,12 @@ type
 
 converter toShared*[T](r: Resource[T]): SharedResource[T] = r.addr
 
+template freeResource*[T](r: SharedResource[T]): void = r[].stat.store FREE.int.static
 
-proc freeResource*[T](r: SharedResource[T]): void =
-  r[].stat.store FREE.int.static
-
-
-proc isBusy*[T](r: SharedResource[T]): bool =
-  r[].stat.load(moRelaxed) == BUSY.int.static
+template isBusy*[T](r: SharedResource[T]): bool =  r[].stat.load(moRelaxed) == BUSY.int.static
 
 
-template applyIt*[T](r: SharedResource[T]; op: untyped): typed =
+template applyIt*[T](r: SharedResource[T]; op: untyped) =
   ## Return true if resource was free if and operation worked
   var expected = FREE.int.static
   result = r[].stat.compareExchange(expected, BUSY.int.static, moAcquire, moRelaxed)
@@ -59,4 +55,5 @@ type OpRes*[T] = Option[T]
   ## This helps keep single reference to parameter
 
 template sent*[T](r: OpRes[T]):     bool = r.isNone
+
 template acquired*[T](r: OpRes[T]): bool = r.isSome

@@ -14,14 +14,14 @@ runnableExamples:
   proc main(): void =
     let args = createShared(int64,  MAX_ITEMS)
     let resp = createShared(int64,  MAX_ITEMS)
-    let aren = createShared(ReqRes, MAX_ITEMS)
+    let aren = createShared(TaskObj, MAX_ITEMS)
   
     let ctx =  initContext()
   
     for i in 0..<MAX_ITEMS:
-      args[i][] = getMonoTime().ticks
+      args[i] = getMonoTime().ticks
 
-      aren[i][] = ReqRes(
+      aren[i] = TaskObj(
         args: args[i],
         res:  resp[i],
         req:  helloWorld,
@@ -39,11 +39,6 @@ runnableExamples:
   main()
 
 
-
-when defined debugDreads:
-  var lastId: Atomic[int]
-  lastId.store 0
-
 type
   TStat = enum
     ## STATE MACHINE: DONE -> TAKEN -> TO DO -> RUNNING -> DONE
@@ -55,78 +50,78 @@ type
    
   RStat* = enum
     ## STATE MACHINE: DONE -> TAKEN -> TO DO -> RUNNING -> DONE
-    NEW,           ## ReqRes is new
-    ENQUEUED,      ## ReqRes was sent to alt queue to be sent later
-    SENT,          ## ReqRes was sent to thread to work
-    WIP,           ## thread is working on ReqRes
-    DONE,          ## thread completed ReqRes work
+    NEW,           ## Task is new
+    ENQUEUED,      ## Task was sent to alt queue to be sent later
+    SENT,          ## Task was sent to thread to work
+    WIP,           ## thread is working on Task
+    DONE,          ## thread completed Task work
 
-  ReqRes* = object
+  TaskObj* = object
     stat*: Atomic[RStat]
     args*: pointer
     res*:  pointer
     req*:  proc (args, res: pointer) {.nimcall, gcsafe.}
+
+
+  Task* = ptr TaskObj
  
 
   WorkerThread = object
     ## When we are unsure about the state of thread
     ## This object should be single thread
     ## but hold shared info like stat and task
-    stat: Atomic[int]   ## thread status
-    reqRes: Option[ptr ReqRes]  ## thread task/response
+    stat:   Atomic[int]         ## thread status
+    task: Option[Task]  ## thread task/response
 
   SharedWorker = ptr WorkerThread
 
-proc `=copy`(dest: var ReqRes; o: ReqRes) {.error.}=
-  discard
+proc `=copy`(dest: var TaskObj; o: TaskObj) {.error.}= discard
 
 using
   thr: ptr WorkerThread
 
-proc initSharedWorker(thr): void =
-  ## Create a new thread with unknown status
-  thr[].stat.store TDONE.int.static
+template initSharedWorker(thr): void = thr[].stat.store TDONE.int.static
 
 
 proc invoke(thr): int =
   ## Execute the task
   ## Return false if thread was available
   result = TTODO.int.static
-  if thr[].stat.compareExchange(result, TWIP.int.static, moAcquire, moRelaxed):
+  if thr.stat.compareExchange(result, TWIP.int.static, moAcquire, moRelaxed):
     try:
-      if thr[].reqRes.isSome:
-        thr[].reqRes.get.stat.store(WIP)
-        thr[].reqRes.get.req(
-          thr[].reqRes.get.args,
-          thr[].reqRes.get.res)
+      if thr.task.isSome:
+        var expcted = SENT
+        doAssert thr.task.get.stat.compareExchange(expcted, WIP, moAcquire, moRelaxed)
+        thr.task.get.req thr.task.get.args, thr.task.get.res
     finally:
+      if thr.task.isSome:
+        var expcted = WIP
+        doAssert thr.task.get.stat.compareExchange(expcted, DONE, moRelease, moRelaxed)
       var expected = TWIP.int.static
-      doAssert thr[].stat.compareExchange(expected, TDONE.int.static, moRelease, moRelaxed)
-      if thr[].reqRes.isSome:
-        thr[].reqRes.get.stat.store(DONE)
+      doAssert thr.stat.compareExchange(expected, TDONE.int.static, moRelease, moRelaxed)
 
 
-proc schedule(thr; reqRes: sink Option[ptr ReqRes]): Option[ptr ReqRes] =
+proc schedule(thr; task: sink Option[Task]): Option[Task] =
   var expected = TDONE.int.static
-  if not thr[].stat.compareExchange(expected, TTAKEN.int.static, moAcquire, moRelaxed):
-    return reqRes
+  if task.isNone or not thr.stat.compareExchange(expected, TTAKEN.int.static, moAcquire, moRelaxed):
+    return task
 
-  result = none[ptr ReqRes]()
+  result = none[Task]()
   try:
-    reqRes.get.stat.store SENT
-    thr.reqRes = reqRes
+    task.get.stat.store SENT
+    thr.task = task
   finally:
     expected = TTAKEN.int.static
     const desired = TTODO.int.static
-    doAssert thr[].stat.compareExchange(expected, desired, moRelease, moRelaxed)
+    doAssert thr.stat.compareExchange(expected, desired, moRelease, moRelaxed)
 
 
 proc scheduleDie(thr): bool =
-  var expected = TDONE.int.static
+  var  expected = TDONE.int.static
   const desired = TTAKEN.int.static
-  result = thr[].stat.compareExchange(expected, desired, moAcquire, moRelaxed)
+  result = thr.stat.compareExchange(expected, desired, moAcquire, moRelaxed)
   if result:
-    thr[].stat.store TDIE.int.static
+    thr.stat.store TDIE.int.static
 
 
 import ./lockedqueue
@@ -134,9 +129,9 @@ import ./lockedqueue
 
 type
   WorkerQueue = SharedQueue[SharedWorker]
-  TaskQueue = SharedQueue[ptr ReqRes]
+  TaskQueue = SharedQueue[Task]
   Context* = object
-    t:   MonoTime
+    t:   int64
     q:   WorkerQueue
     tq:  TaskQueue
     thr: ptr Thread[ptr Context]
@@ -144,8 +139,10 @@ type
     minThreads: int
     maxThreads: int
 
+using ctx: ptr Context
 
-template whileJoin*(ctx: ptr Context; op: untyped): void =
+
+template whileJoin*(ctx; op: untyped): void =
   ctx.tq.stop
   while ctx.numThreads[].load > 0:
     op
@@ -154,15 +151,13 @@ template whileJoin*(ctx: ptr Context; op: untyped): void =
   freeShared ctx.q
   freeShared ctx
 
-converter threads(ctx: ptr Context): WorkerQueue = ctx.q
+converter threads(ctx): WorkerQueue = ctx.q
 
-# converter thread(ctx: ptr Context): ptr Thread[ptr Context] = ctx.thr
+converter tasks(ctx): TaskQueue = ctx.tq
 
-converter tasks(ctx: ptr Context): TaskQueue = ctx.tq
-
-proc dup(ctx: ptr Context; thr: ptr Thread[ptr Context]): ptr Context =
+proc dup(ctx; thr: ptr Thread[ptr Context]): ptr Context =
   result = createShared(Context)
-  result.t = getMonoTime()
+  result.t = getMonoTime().ticks
   result.q = ctx.q
   result.tq  = ctx.tq
   result.thr = thr
@@ -171,26 +166,25 @@ proc dup(ctx: ptr Context; thr: ptr Thread[ptr Context]): ptr Context =
   result.maxThreads = ctx.maxThreads
 
 
-proc schedule(q: WorkerQueue; reqRes: sink Option[ptr ReqRes]): Option[ptr ReqRes] =
+proc schedule(q: WorkerQueue; task: sink Option[Task]): Option[Task] =
   ## Because task cannot have copies
-  ## Returns the reqRes if no thread is available
-  ## Returns none(ReqRes) if operation succeed
-  result = reqRes
+  ## Returns the task if no thread is available
+  ## Returns none(task) if operation succeed
+  result = task
   if result.isSome:
-    if q.len > 0 and not q.isBusy:
-      let optThr = q.dequeueLast
-      if optThr.isSome:
-        while result.isSome:
-          result = optThr.get.schedule result
-          if result.isSome:
-            spin()
+    let optThr = q.dequeueLast
+    if optThr.isSome:
+      while result.isSome:
+        result = optThr.get.schedule result
+        if result.isSome:
+          spin()
 
 
-proc schedule(q: TaskQueue; reqRes: sink Option[ptr ReqRes]): Option[ptr ReqRes] =
+proc schedule(q: TaskQueue; task: sink Option[Task]): Option[Task] =
   ## Because task cannot have copies
-  ## Returns the reqRes if task queue is unavailable
-  ## Returns none(ReqRes) if operation succeed
-  result = reqRes
+  ## Returns the task if task queue is unavailable
+  ## Returns none(task) if operation succeed
+  result = task
   if result.isSome:
     result.get.stat.store ENQUEUED
     result = q.enqueue result
@@ -198,17 +192,17 @@ proc schedule(q: TaskQueue; reqRes: sink Option[ptr ReqRes]): Option[ptr ReqRes]
       result.get.stat.store NEW
 
 
-proc schedule*(ctx: ptr Context; reqRes: sink Option[ptr ReqRes]): Option[ptr ReqRes] =
-  result = ctx.threads.schedule reqRes
+proc schedule*(ctx; task: sink Option[Task]): Option[Task] =
+  result = ctx.threads.schedule task
   if result.isSome:
     result = ctx.tasks.schedule result
 
 
-proc schedule*(ctx: ptr Context; reqRes: ptr ReqRes): bool =
-  ctx.schedule(reqRes.some).isNone
+proc schedule*(ctx; task: Task): bool =
+  ctx.schedule(task.some).isNone
 
 
-template whileSchedule*(ctx: ptr Context; v: sink Option[ptr ReqRes]; op: untyped): void =
+template whileSchedule*(ctx; v: sink Option[Task]; op: untyped): void =
   var vv = v
   while vv.isSome and not ctx.tq.blocked:
     if not(ctx.q.isBusy) and not(ctx.threads.len == 0):
@@ -226,10 +220,9 @@ proc scheduleDie*(q: WorkerQueue): bool =
       spin()
 
 
-proc taskRunner(ctx: ptr Context) {.thread.} =
-  var myInit = getMonoTime()
-  let myCost = (myInit - ctx.t).inNanoSeconds
-  when defined debugDreads: debugEcho getThreadId(), " begin"
+proc taskRunner(ctx) {.thread.} =
+  var myInit = getMonoTime().ticks
+  let myCost = myInit - ctx.t
 
   let self = createShared(WorkerThread)
   self.initSharedWorker
@@ -251,11 +244,11 @@ proc taskRunner(ctx: ptr Context) {.thread.} =
     if oldStat == TTODO.int.static:
       ctx.q.whileEnqueue self.some:
         spin()
-      myInit = getMonoTime()
+      myInit = getMonoTime().ticks
       continue
 
     # spin my creation cost
-    if (getMonoTime() - myInit).inNanoSeconds < myCost:
+    if getMonoTime().ticks - myInit < myCost:
       spin()
       continue
 
@@ -268,9 +261,7 @@ proc taskRunner(ctx: ptr Context) {.thread.} =
       break
 
     sleep()
-    myInit = getMonoTime()
-
-  when defined debugDreads: debugEcho getThreadId(), " end"
+    myInit = getMonoTime().ticks
 
   defer:
     ctx.numThreads[].atomicDec
@@ -279,47 +270,45 @@ proc taskRunner(ctx: ptr Context) {.thread.} =
     self.freeShared
 
 
-proc threadManager(ctx: ptr Context) {.thread.} =
-  var myInit = getMonoTime()
-  let myCost = (myInit - ctx.t).inNanoSeconds
-  var reqRes = none[ptr ReqRes]()
-  while ctx.tasks.len > 0 or not(ctx.tasks.blocked):
+proc threadManager(ctx) {.thread.} =
+  var myInit = getMonoTime().ticks
+  let myCost = myInit - ctx.t
+  var task = none[Task]()
+  while ctx.tasks.len > 0 or not ctx.tasks.blocked:
     # Create more threads if resource len is too low
-    if ctx.threads.len < ctx.minThreads and ctx.threads.len < ctx.maxThreads:
+    if ctx.threads.len < ctx.minThreads and ctx.numThreads[].load(moRelaxed) < ctx.maxThreads:
       ctx.numThreads[].atomicInc
-      when defined debugDreads: debugEcho getThreadId(), " scaling up ", ctx.q[].len
       let t = createShared Thread[ptr Context]
       createThread t[], taskRunner, ctx.dup t
 
-    if reqRes.isNone and ctx.tasks.len > 0 and not ctx.tq.isBusy:
-      reqRes = ctx.tasks.dequeue
+    if task.isNone:
+      task = ctx.tasks.dequeue
     
-    if reqRes.isSome and ctx.threads.len > 0 and not ctx.q.isBusy:
-      reqRes = ctx.schedule reqRes
+    if task.isSome:
+      task = ctx.schedule task
       continue
 
     # too many threads, scaling down
     if ctx.tasks.len == 0 and ctx.threads.len > ctx.minThreads:
       # spin my creation cost
-      if (getMonoTime() - myInit).inNanoSeconds < myCost:
+      if getMonoTime().ticks - myInit < myCost:
         continue
 
       spin(20.us)
-      myInit = getMonoTime()
+      myInit = getMonoTime().ticks
       
       if ctx.tasks.len == 0 and ctx.threads.len > ctx.minThreads:
         discard ctx.q.scheduleDie
-        when defined debugDreads: debugEcho getThreadId(), " scaling down ", ctx.q.len
 
     spin 100.ns
 
 
   while ctx.tasks.len > 0:
-    if reqRes.isNone:
-      reqRes = ctx.tasks.dequeue
+    if task.isNone:
+      task = ctx.tasks.dequeue
   
-    if reqRes.isSome:
-      reqRes = ctx.threads.schedule reqRes
+    if task.isSome:
+      task = ctx.threads.schedule task
     spin()
 
   
@@ -344,9 +333,9 @@ proc initContext*(minThreads: int = 4; maxThreads: int = 6): ptr Context {.disca
 
   assert minThreads + 1 < maxThreads, "maxThreads must be greater than minThreads + 1"
   result = createShared(Context)
-  result.t = getMonoTime()
+  result.t = getMonoTime().ticks
   result.q = createShared(QueueResource[SharedWorker])
-  result.tq = createShared(QueueResource[ptr ReqRes])
+  result.tq = createShared(QueueResource[Task])
   result.thr = createShared(Thread[ptr Context])
   result.numThreads = createShared(Atomic[int])
   result.minThreads = minThreads
