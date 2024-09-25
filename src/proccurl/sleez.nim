@@ -4,7 +4,7 @@ type
   NanoSeconds*  = distinct int64
   MicroSeconds* = distinct int64
   MiliSeconds*  = distinct int64
-  Seconds*      = distinct int
+  Seconds*      = distinct int64
 
 
 proc s* (t: int64): Seconds      = cast[Seconds](t)
@@ -12,51 +12,49 @@ proc ms*(t: int64): MiliSeconds  = cast[MiliSeconds](t)
 proc us*(t: int64): MicroSeconds = cast[MicroSeconds](t)
 proc ns*(t: int64): NanoSeconds  = cast[NanoSeconds](t)
 
-converter ms*(t: Seconds):      MiliSeconds  = cast[MiliSeconds]( cast[int64](t) * 1000)
+converter ms*(t: Seconds):      MiliSeconds  = cast[MiliSeconds ](cast[int64](t) * 1000)
 converter us*(t: MiliSeconds):  MicroSeconds = cast[MicroSeconds](cast[int64](t) * 1000)
 converter us*(t: Seconds):      MicroSeconds = cast[MicroSeconds](cast[int64](t) * 1000_1000)
-converter ns*(t: MicroSeconds): NanoSeconds  = cast[NanoSeconds]( cast[int64](t) * 1000)
-converter ns*(t: MiliSeconds):  NanoSeconds  = cast[NanoSeconds]( cast[int64](t) * 1000_1000)
-converter ns*(t: Seconds):      NanoSeconds  = cast[NanoSeconds]( cast[int64](t) * 1000_1000_1000)
+converter ns*(t: MicroSeconds): NanoSeconds  = cast[NanoSeconds ](cast[int64](t) * 1000)
+converter ns*(t: MiliSeconds):  NanoSeconds  = cast[NanoSeconds ](cast[int64](t) * 1000_1000)
+converter ns*(t: Seconds):      NanoSeconds  = cast[NanoSeconds ](cast[int64](t) * 1000_1000_1000)
 
 
-converter ss* (t: NanoSeconds):  Seconds      = cast[Seconds](     cast[int64](t) div 1000_1000_1000)
-converter ss* (t: MicroSeconds): Seconds      = cast[Seconds](     cast[int64](t) div 1000_1000)
-converter ss* (t: MiliSeconds):  Seconds      = cast[Seconds](     cast[int64](t) div 1000)
-converter sm* (t: NanoSeconds):  MiliSeconds  = cast[MiliSeconds]( cast[int64](t) div 1000_1000)
-converter sm* (t: MicroSeconds): MiliSeconds  = cast[MiliSeconds]( cast[int64](t) div 1000)
+converter ss* (t: NanoSeconds):  Seconds      = cast[Seconds     ](cast[int64](t) div 1000_1000_1000)
+converter ss* (t: MicroSeconds): Seconds      = cast[Seconds     ](cast[int64](t) div 1000_1000)
+converter ss* (t: MiliSeconds):  Seconds      = cast[Seconds     ](cast[int64](t) div 1000)
+converter sm* (t: NanoSeconds):  MiliSeconds  = cast[MiliSeconds ](cast[int64](t) div 1000_1000)
+converter sm* (t: MicroSeconds): MiliSeconds  = cast[MiliSeconds ](cast[int64](t) div 1000)
 converter su* (t: NanoSeconds):  MicroSeconds = cast[MicroSeconds](cast[int64](t) div 1000)
 
 
+template zeroFill(t: int64): string =
+  if   t < 010: "00" & $t
+  elif t < 100:  "0" & $t
+  else:                $t
+
 converter `$`*(t: Seconds):      string =
-  if cast[int64](t) < 100:
-    if cast[int64](t) < 10: "00" & $cast[int64](t) & "s"
-    else: "0" & $cast[int64](t) & "s"
-  else: $cast[int64](t) & "s"
+  result = if cast[int64](t) != 0: "\e[31m" else: "\e[30m"
+  result = result & cast[int64](t).zeroFill & "s"
+  result = result & "\e[0m"
 
 converter `$`*(t: MiliSeconds):  string =
-  if cast[int64](t.ss) == 0:
-    if cast[int64](t) < 100:
-      if cast[int64](t) < 10: "00" & $cast[int64](t) & "ms"
-      else: "0" & $cast[int64](t) & "ms"
-    else: $cast[int64](t) & "ms"
-  else: $t.ss
+  result = $t.ss
+  result = result & (if cast[int64](t) != 0: "\e[33m" else: "\e[30m")
+  result = result & (cast[int64](t) - cast[int64](t.ss.ms)).zeroFill & "ms"
+  result = result & "\e[0m"
 
 converter `$`*(t: MicroSeconds): string =
-  if cast[int64](t.sm) == 0:
-    if cast[int64](t) < 100:
-      if cast[int64](t) < 10: "00" & $cast[int64](t) & "us"
-      else: "0" & $cast[int64](t) & "us"
-    else: $cast[int64](t) & "us"
-  else: $t.sm
+  result = $t.sm
+  result = result & (if cast[int64](t) != 0: "\e[34m" else: "\e[30m")
+  result = result & (cast[int64](t) - cast[int64](t.sm.us)).zeroFill & "us"
+  result = result & "\e[0m"
 
 converter `$`*(t: NanoSeconds):  string =
-  if cast[int64](t.su) == 0:
-    if cast[int64](t) < 100:
-      if cast[int64](t) < 10: "00" & $cast[int64](t) & "ns"
-      else: "0" & $cast[int64](t) & "ns"
-    else: $cast[int64](t) & "ns"
-  else: $t.su
+  result = $t.su
+  result = result & (if cast[int64](t) != 0: "\e[32m" else: "\e[30m")
+  result = result & (cast[int64](t) - cast[int64](t.su.ns)).zeroFill & "ns"
+  result = result & "\e[0m"
 
 
 using 
