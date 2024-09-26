@@ -8,27 +8,27 @@
 ##   3.1 Group in ranges of 250 and show 5 biggest clusters
 ## 4. Calculate how much time it takes to wait all task to be completed after being scheduled
 ##
-##
-##   Tasks:    	1000	DONE
-##   Setup:     	     092us873ns	         	Initializing
-##   Send  100%:	     925us739ns	925ns/task	To schedule tasks
-##   Send   28%:	     000us250ns	 282 tasks	+/-250ns
-##   Send   23%:	     000us500ns	 238 tasks	+/-250ns
-##   Send   23%:	     000us750ns	 237 tasks	+/-250ns
-##   Send   11%:	     001us000ns	 116 tasks	+/-250ns
-##   Send   05%:	     001us250ns	 055 tasks	+/-250ns
-##   Jitter 83%:	     000us250ns	 832 tasks	+/-250ns
-##   Jitter 03%:	     001us500ns	 030 tasks	+/-250ns
-##   Jitter 02%:	     001us250ns	 025 tasks	+/-250ns
-##   Jitter 01%:	     001us750ns	 018 tasks	+/-250ns
-##   Jitter 01%:	     001us000ns	 013 tasks	+/-250ns
-##   Join:      	     040us748ns	         	Waiting all tasks to complete
-##   Snd+Join:  	     966us487ns	966ns/task	Send + Join
-##   Total:     	001ms245us195ns
-##
+##   Tasks:    	1000
+##   Setup:    	000s000ms000us385ns	         	Initializing
+##   Send  100%:	000s000ms375us843ns	000s000ms000us375ns/task	To schedule tasks
+##   Send   71%:	000s000ms000us150ns	 714 tasks	+/-050ns
+##   Send   21%:	000s000ms000us200ns	 217 tasks	+/-050ns
+##   Send   03%:	000s000ms000us250ns	 036 tasks	+/-050ns
+##   Send   01%:	000s000ms000us300ns	 011 tasks	+/-050ns
+##   Send   00%:	000s000ms009us300ns	 003 tasks	+/-050ns
+##   Jitter 99%:	000s000ms000us002ns	 999 tasks	+/-002ns
+##   Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-002ns
+##   Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-002ns
+##   Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-002ns
+##   Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-002ns
+##   Join:     	000s000ms000us047ns	         	Waiting all tasks to complete
+##   Snd+Join: 	000s000ms375us890ns	000s000ms000us375ns/task	Send + Join
+##   Total:    	000s000ms376us332ns
+##   
 
-import std/[atomics, tables, monotimes, options]
-import proccurl/[dreads, ptrmath, sleez]
+import std/[asyncfutures, asyncdispatch]
+import std/[tables, monotimes, options]
+import proccurl/[ptrmath, sleez]
 
 type
   Perc* = object
@@ -127,63 +127,49 @@ template zeroFill(t: int64): string =
   else:                $t
 
 when isMainModule:
-  proc helloWorld(args, res: pointer): void =
+  proc helloWorld(args, res: pointer): Future[void] {.async.} =
     cast[ptr int64](res)[] = getMonoTime().ticks
 
   const MAX_ITEMS = 1000
 
-  proc main(): void =
+  proc main(): Future[void] {.async.} =
     ## Room for work
     let send  = createShared(int64,  MAX_ITEMS)
     let sent  = createShared(int64,  MAX_ITEMS)
     let args  = createShared(int64,  MAX_ITEMS)
     let res   = createShared(int64,  MAX_ITEMS)
-    let tasks = createShared(TaskObj, MAX_ITEMS)
 
     let epoc = getMonoTime().ticks
-    let pool  = newPool()
 
     for i in 0..<MAX_ITEMS:
       args[i] = 0
-      tasks[i] = TaskObj(
-        args: args[i],
-        req:  helloWorld,
-        res:  res[i],
-      )
 
       send[i] = getMonoTime().ticks
       args[i] = getMonoTime().ticks
-      pool.whileSchedule tasks[i].some:
-       args[i] = getMonoTime().ticks
+      await helloWorld(args[i], res[i])
       sent[i] = getMonoTime().ticks
 
     let tasksSent = getMonoTime().ticks
 
-    pool.whileJoin:
-      spin()
-
-
-    for i in 0..<MAX_ITEMS:
-      assert tasks[i].isDone, "Task " & $i & " not DONE but" & $tasks[i].stat.load
 
     let ta = getMonoTime().ticks
 
-    let (st11, nd21, rd31, th41, th51) = top_items(sent, res, 150, MAX_ITEMS)
-    let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 200, MAX_ITEMS)
+    let (st11, nd21, rd31, th41, th51) = top_items(sent, res, 2, MAX_ITEMS)
+    let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 50, MAX_ITEMS)
 
     echo "Tasks:    \t", MAX_ITEMS
     echo "Setup:    \t", (send[0][] - epoc).ns, "\t", "         \t", "Initializing"
     echo "Send  100%:\t", (tasksSent - args[0][]).ns,   "\t", ((tasksSent - args[0][]) div MAX_ITEMS).ns, "/task\t", "To schedule tasks"
-    echo "Send   ", st12.perc, ":\t", (st12.time).ns, "\t ", st12.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Send   ", nd22.perc, ":\t", (nd22.time).ns, "\t ", nd22.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Send   ", rd32.perc, ":\t", (rd32.time).ns, "\t ", rd32.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Send   ", th42.perc, ":\t", (th42.time).ns, "\t ", th42.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Send   ", th52.perc, ":\t", (th52.time).ns, "\t ", th52.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Jitter ", st11.perc, ":\t", (st11.time).ns, "\t ", st11.count.zeroFill , " tasks\t", "+/-150ns"
-    echo "Jitter ", nd21.perc, ":\t", (nd21.time).ns, "\t ", nd21.count.zeroFill , " tasks\t", "+/-150ns"
-    echo "Jitter ", rd31.perc, ":\t", (rd31.time).ns, "\t ", rd31.count.zeroFill , " tasks\t", "+/-150ns"
-    echo "Jitter ", th41.perc, ":\t", (th41.time).ns, "\t ", th41.count.zeroFill , " tasks\t", "+/-150ns"
-    echo "Jitter ", th51.perc, ":\t", (th51.time).ns, "\t ", th51.count.zeroFill , " tasks\t", "+/-150ns"
+    echo "Send   ", st12.perc, ":\t", (st12.time).ns, "\t ", st12.count.zeroFill , " tasks\t", "+/-050ns"
+    echo "Send   ", nd22.perc, ":\t", (nd22.time).ns, "\t ", nd22.count.zeroFill , " tasks\t", "+/-050ns"
+    echo "Send   ", rd32.perc, ":\t", (rd32.time).ns, "\t ", rd32.count.zeroFill , " tasks\t", "+/-050ns"
+    echo "Send   ", th42.perc, ":\t", (th42.time).ns, "\t ", th42.count.zeroFill , " tasks\t", "+/-050ns"
+    echo "Send   ", th52.perc, ":\t", (th52.time).ns, "\t ", th52.count.zeroFill , " tasks\t", "+/-050ns"
+    echo "Jitter ", st11.perc, ":\t", (st11.time).ns, "\t ", st11.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", nd21.perc, ":\t", (nd21.time).ns, "\t ", nd21.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", rd31.perc, ":\t", (rd31.time).ns, "\t ", rd31.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", th41.perc, ":\t", (th41.time).ns, "\t ", th41.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", th51.perc, ":\t", (th51.time).ns, "\t ", th51.count.zeroFill , " tasks\t", "+/-002ns"
     echo "Join:     \t", (ta - tasksSent).ns, "\t", "         \t", "Waiting all tasks to complete"
     echo "Snd+Join: \t", (ta - args[0][]).ns, "\t", ((ta - args[0][]) div MAX_ITEMS).ns, "/task\t", "Send + Join"
     echo "Total:    \t", (ta - epoc).ns
@@ -192,8 +178,6 @@ when isMainModule:
     freeShared res
     freeShared args
     freeShared sent
-    freeShared tasks
     freeShared args
-    freePool pool
 
-  main()
+  waitFor main()

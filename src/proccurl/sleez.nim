@@ -129,7 +129,7 @@ proc spin*(ns = 1.ns; us = 0.us; ms = 0.ms; s = 0.s): int64 {.discardable.}=
       var interval: Timeval
       interval.tv_sec  = posix.Time 0
       interval.tv_usec = cast[int64](su(us + ns))
-      discard close 2147483647
+      discard close -1
     cpuRelax()
     result = getMonoTime().ticks - epch
 

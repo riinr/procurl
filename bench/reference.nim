@@ -9,26 +9,27 @@
 ## 4. Calculate how much time it takes to wait all task to be completed after being scheduled
 ##
 ##
-##   Tasks:    	1000	DONE
-##   Setup:     	     092us873ns	         	Initializing
-##   Send  100%:	     925us739ns	925ns/task	To schedule tasks
-##   Send   28%:	     000us250ns	 282 tasks	+/-250ns
-##   Send   23%:	     000us500ns	 238 tasks	+/-250ns
-##   Send   23%:	     000us750ns	 237 tasks	+/-250ns
-##   Send   11%:	     001us000ns	 116 tasks	+/-250ns
-##   Send   05%:	     001us250ns	 055 tasks	+/-250ns
-##   Jitter 83%:	     000us250ns	 832 tasks	+/-250ns
-##   Jitter 03%:	     001us500ns	 030 tasks	+/-250ns
-##   Jitter 02%:	     001us250ns	 025 tasks	+/-250ns
-##   Jitter 01%:	     001us750ns	 018 tasks	+/-250ns
-##   Jitter 01%:	     001us000ns	 013 tasks	+/-250ns
-##   Join:      	     040us748ns	         	Waiting all tasks to complete
-##   Snd+Join:  	     966us487ns	966ns/task	Send + Join
-##   Total:     	001ms245us195ns
+##  Tasks:    	1000
+##  Setup:    	000s000ms000us065ns	         	Initializing
+##  Send  100%:	000s000ms091us688ns	000s000ms000us091ns/task	To schedule tasks
+##  Send   52%:	000s000ms000us066ns	 527 tasks	+/-200ns
+##  Send   44%:	000s000ms000us068ns	 444 tasks	+/-200ns
+##  Send   01%:	000s000ms000us070ns	 015 tasks	+/-200ns
+##  Send   01%:	000s000ms000us064ns	 013 tasks	+/-200ns
+##  Send   00%:	000s000ms000us000ns	 000 tasks	+/-200ns
+##  Jitter 99%:	000s000ms000us002ns	 999 tasks	+/-150ns
+##  Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-150ns
+##  Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-150ns
+##  Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-150ns
+##  Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-150ns
+##  Join:     	000s000ms000us037ns	         	Waiting all tasks to complete
+##  Snd+Join: 	000s000ms091us725ns	000s000ms000us091ns/task	Send + Join
+##  Total:    	000s000ms091us845ns
 ##
 
-import std/[atomics, tables, monotimes, options]
-import proccurl/[dreads, ptrmath, sleez]
+
+import std/[tables, monotimes, options]
+import proccurl/[ptrmath, sleez]
 
 type
   Perc* = object
@@ -138,38 +139,23 @@ when isMainModule:
     let sent  = createShared(int64,  MAX_ITEMS)
     let args  = createShared(int64,  MAX_ITEMS)
     let res   = createShared(int64,  MAX_ITEMS)
-    let tasks = createShared(TaskObj, MAX_ITEMS)
 
     let epoc = getMonoTime().ticks
-    let pool  = newPool()
 
     for i in 0..<MAX_ITEMS:
       args[i] = 0
-      tasks[i] = TaskObj(
-        args: args[i],
-        req:  helloWorld,
-        res:  res[i],
-      )
 
       send[i] = getMonoTime().ticks
       args[i] = getMonoTime().ticks
-      pool.whileSchedule tasks[i].some:
-       args[i] = getMonoTime().ticks
+      helloWorld(args[i], res[i])
       sent[i] = getMonoTime().ticks
 
     let tasksSent = getMonoTime().ticks
 
-    pool.whileJoin:
-      spin()
-
-
-    for i in 0..<MAX_ITEMS:
-      assert tasks[i].isDone, "Task " & $i & " not DONE but" & $tasks[i].stat.load
-
     let ta = getMonoTime().ticks
 
-    let (st11, nd21, rd31, th41, th51) = top_items(sent, res, 150, MAX_ITEMS)
-    let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 200, MAX_ITEMS)
+    let (st11, nd21, rd31, th41, th51) = top_items(sent, res, 2, MAX_ITEMS)
+    let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 2, MAX_ITEMS)
 
     echo "Tasks:    \t", MAX_ITEMS
     echo "Setup:    \t", (send[0][] - epoc).ns, "\t", "         \t", "Initializing"
@@ -192,8 +178,6 @@ when isMainModule:
     freeShared res
     freeShared args
     freeShared sent
-    freeShared tasks
     freeShared args
-    freePool pool
 
   main()
