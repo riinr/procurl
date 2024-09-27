@@ -21,18 +21,20 @@ We do that taking the time before the function call, inside the function, and
 after the function.
 
 ```nim
-proc fn(): auto = getMonoTime()
+proc fn(t1: var MonoTime): void =
+  t1 = getMonoTime()
 
-let 
-  t0 = getMonoTime()
-  t1 = schedule fn()  # await/send/schedule if is the case
-  t2 = getMonoTime()
 
-  send   = t2 - t0    # How much time it takes to schedule the task,
-                      # makes more sense in threads
+let t0 = getMonoTime()
+var t1: MonoTime
+schedule fn(t1)         # await/send/schedule if is the case
+let t2 = getMonoTime()
 
-  jitter = t1 - t0    # How much time it takes to other thread run
-                      # this task. again makes more sense in threads
+let send   = t2 - t0    # How much time it takes to schedule the task,
+                        # makes more sense in threads
+
+let jitter = t1 - t0    # How much time it takes to other thread run
+                        # this task. again makes more sense in threads
 ```
 
 We run that 1000 times, get the 5 most commons results.
