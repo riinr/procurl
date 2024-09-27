@@ -1,7 +1,7 @@
 # Benchmarks
 
-**Disclaimer**: [Benchmarking Is Hard](https://jvns.ca/blog/2016/07/23/rigorous-benchmarking-in-reasonable-time/)
-**Disclaimer**: [Operation Costs in CPU Clock Cycles](http://ithare.com/infographics-operation-costs-in-cpu-clock-cycles/)
+- **Disclaimer**: [Benchmarking Is Hard](https://jvns.ca/blog/2016/07/23/rigorous-benchmarking-in-reasonable-time/)
+- **Disclaimer**: [Operation Costs in CPU Clock Cycles](http://ithare.com/infographics-operation-costs-in-cpu-clock-cycles/)
 
 The main objective is meausre noise of this library. But we also measure other
 libraries for reference.
