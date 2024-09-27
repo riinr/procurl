@@ -1,31 +1,3 @@
-##
-## The objective of this benchmark is following:
-## 1. Calculate the thread pool creation overhead
-## 2. Calculate how much time is required to send/schedule 1000 tasks
-##   2.1 Calculate the avg
-##   2.2 Group in ranges of 250 and show 5 biggest clusters
-## 3. Calculate how much time is lost after task was scheduled (jitter)
-##   3.1 Group in ranges of 250 and show 5 biggest clusters
-## 4. Calculate how much time it takes to wait all task to be completed after being scheduled
-##
-##   Tasks:    	1000
-##   Setup:    	000s000ms000us385ns	         	Initializing
-##   Send  100%:	000s000ms375us843ns	000s000ms000us375ns/task	To schedule tasks
-##   Send   71%:	000s000ms000us150ns	 714 tasks	+/-050ns
-##   Send   21%:	000s000ms000us200ns	 217 tasks	+/-050ns
-##   Send   03%:	000s000ms000us250ns	 036 tasks	+/-050ns
-##   Send   01%:	000s000ms000us300ns	 011 tasks	+/-050ns
-##   Send   00%:	000s000ms009us300ns	 003 tasks	+/-050ns
-##   Jitter 99%:	000s000ms000us002ns	 999 tasks	+/-002ns
-##   Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-002ns
-##   Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-002ns
-##   Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-002ns
-##   Jitter 00%:	000s000ms000us000ns	 000 tasks	+/-002ns
-##   Join:     	000s000ms000us047ns	         	Waiting all tasks to complete
-##   Snd+Join: 	000s000ms375us890ns	000s000ms000us375ns/task	Send + Join
-##   Total:    	000s000ms376us332ns
-##   
-
 import std/[asyncfutures, asyncdispatch]
 import std/[tables, monotimes, options]
 import proccurl/[ptrmath, sleez]
@@ -127,7 +99,11 @@ template zeroFill(t: int64): string =
   else:                $t
 
 when isMainModule:
+  let doneFuture = newFuture[void]()
+  doneFuture.complete
+
   proc helloWorld(args, res: pointer): Future[void] {.async.} =
+    await doneFuture # makes sure we release to mainloop
     cast[ptr int64](res)[] = getMonoTime().ticks
 
   const MAX_ITEMS = 1000
@@ -151,25 +127,24 @@ when isMainModule:
 
     let tasksSent = getMonoTime().ticks
 
-
     let ta = getMonoTime().ticks
 
-    let (st11, nd21, rd31, th41, th51) = top_items(sent, res, 2, MAX_ITEMS)
-    let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 50, MAX_ITEMS)
+    let (st11, nd21, rd31, th41, th51) = top_items(send, sent, 25, MAX_ITEMS)
+    let (st12, nd22, rd32, th42, th52) = top_items(sent, res,  02, MAX_ITEMS)
 
     echo "Tasks:    \t", MAX_ITEMS
     echo "Setup:    \t", (send[0][] - epoc).ns, "\t", "         \t", "Initializing"
     echo "Send  100%:\t", (tasksSent - args[0][]).ns,   "\t", ((tasksSent - args[0][]) div MAX_ITEMS).ns, "/task\t", "To schedule tasks"
-    echo "Send   ", st12.perc, ":\t", (st12.time).ns, "\t ", st12.count.zeroFill , " tasks\t", "+/-050ns"
-    echo "Send   ", nd22.perc, ":\t", (nd22.time).ns, "\t ", nd22.count.zeroFill , " tasks\t", "+/-050ns"
-    echo "Send   ", rd32.perc, ":\t", (rd32.time).ns, "\t ", rd32.count.zeroFill , " tasks\t", "+/-050ns"
-    echo "Send   ", th42.perc, ":\t", (th42.time).ns, "\t ", th42.count.zeroFill , " tasks\t", "+/-050ns"
-    echo "Send   ", th52.perc, ":\t", (th52.time).ns, "\t ", th52.count.zeroFill , " tasks\t", "+/-050ns"
-    echo "Jitter ", st11.perc, ":\t", (st11.time).ns, "\t ", st11.count.zeroFill , " tasks\t", "+/-002ns"
-    echo "Jitter ", nd21.perc, ":\t", (nd21.time).ns, "\t ", nd21.count.zeroFill , " tasks\t", "+/-002ns"
-    echo "Jitter ", rd31.perc, ":\t", (rd31.time).ns, "\t ", rd31.count.zeroFill , " tasks\t", "+/-002ns"
-    echo "Jitter ", th41.perc, ":\t", (th41.time).ns, "\t ", th41.count.zeroFill , " tasks\t", "+/-002ns"
-    echo "Jitter ", th51.perc, ":\t", (th51.time).ns, "\t ", th51.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Send   ", st11.perc, ":\t", (st11.time).ns, "\t ", st11.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Send   ", nd21.perc, ":\t", (nd21.time).ns, "\t ", nd21.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Send   ", rd31.perc, ":\t", (rd31.time).ns, "\t ", rd31.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Send   ", th41.perc, ":\t", (th41.time).ns, "\t ", th41.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Send   ", th51.perc, ":\t", (th51.time).ns, "\t ", th51.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Jitter ", st12.perc, ":\t", (st12.time).ns, "\t ", st12.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", nd22.perc, ":\t", (nd22.time).ns, "\t ", nd22.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", rd32.perc, ":\t", (rd32.time).ns, "\t ", rd32.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", th42.perc, ":\t", (th42.time).ns, "\t ", th42.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", th52.perc, ":\t", (th52.time).ns, "\t ", th52.count.zeroFill , " tasks\t", "+/-002ns"
     echo "Join:     \t", (ta - tasksSent).ns, "\t", "         \t", "Waiting all tasks to complete"
     echo "Snd+Join: \t", (ta - args[0][]).ns, "\t", ((ta - args[0][]) div MAX_ITEMS).ns, "/task\t", "Send + Join"
     echo "Total:    \t", (ta - epoc).ns

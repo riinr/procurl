@@ -1,3 +1,4 @@
+import chronos
 import std/[tables, monotimes, options]
 import proccurl/[ptrmath, sleez]
 
@@ -98,12 +99,16 @@ template zeroFill(t: int64): string =
   else:                $t
 
 when isMainModule:
-  proc helloWorld(args, res: pointer): void =
+
+  proc helloWorld(args, res: pointer): Future[void] {.async.} =
+    let doneFuture = newFuture[void]()
+    doneFuture.complete
+    await doneFuture # makes sure we release to mainloop
     cast[ptr int64](res)[] = getMonoTime().ticks
 
   const MAX_ITEMS = 1000
 
-  proc main(): void =
+  proc main(): Future[void] {.async.} =
     ## Room for work
     let send  = createShared(int64,  MAX_ITEMS)
     let sent  = createShared(int64,  MAX_ITEMS)
@@ -117,29 +122,29 @@ when isMainModule:
 
       send[i] = getMonoTime().ticks
       args[i] = getMonoTime().ticks
-      helloWorld(args[i], res[i])
+      await helloWorld(args[i], res[i])
       sent[i] = getMonoTime().ticks
 
     let tasksSent = getMonoTime().ticks
 
     let ta = getMonoTime().ticks
 
-    let (st11, nd21, rd31, th41, th51) = top_items(sent, res, 2, MAX_ITEMS)
-    let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 2, MAX_ITEMS)
+    let (st11, nd21, rd31, th41, th51) = top_items(send, sent, 25, MAX_ITEMS)
+    let (st12, nd22, rd32, th42, th52) = top_items(sent, res,  02, MAX_ITEMS)
 
     echo "Tasks:    \t", MAX_ITEMS
     echo "Setup:    \t", (send[0][] - epoc).ns, "\t", "         \t", "Initializing"
     echo "Send  100%:\t", (tasksSent - args[0][]).ns,   "\t", ((tasksSent - args[0][]) div MAX_ITEMS).ns, "/task\t", "To schedule tasks"
-    echo "Send   ", st12.perc, ":\t", (st12.time).ns, "\t ", st12.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Send   ", nd22.perc, ":\t", (nd22.time).ns, "\t ", nd22.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Send   ", rd32.perc, ":\t", (rd32.time).ns, "\t ", rd32.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Send   ", th42.perc, ":\t", (th42.time).ns, "\t ", th42.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Send   ", th52.perc, ":\t", (th52.time).ns, "\t ", th52.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Jitter ", st11.perc, ":\t", (st11.time).ns, "\t ", st11.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Jitter ", nd21.perc, ":\t", (nd21.time).ns, "\t ", nd21.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Jitter ", rd31.perc, ":\t", (rd31.time).ns, "\t ", rd31.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Jitter ", th41.perc, ":\t", (th41.time).ns, "\t ", th41.count.zeroFill , " tasks\t", "+/-2ns"
-    echo "Jitter ", th51.perc, ":\t", (th51.time).ns, "\t ", th51.count.zeroFill , " tasks\t", "+/-2ns"
+    echo "Send   ", st11.perc, ":\t", (st11.time).ns, "\t ", st11.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Send   ", nd21.perc, ":\t", (nd21.time).ns, "\t ", nd21.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Send   ", rd31.perc, ":\t", (rd31.time).ns, "\t ", rd31.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Send   ", th41.perc, ":\t", (th41.time).ns, "\t ", th41.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Send   ", th51.perc, ":\t", (th51.time).ns, "\t ", th51.count.zeroFill , " tasks\t", "+/-025ns"
+    echo "Jitter ", st12.perc, ":\t", (st12.time).ns, "\t ", st12.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", nd22.perc, ":\t", (nd22.time).ns, "\t ", nd22.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", rd32.perc, ":\t", (rd32.time).ns, "\t ", rd32.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", th42.perc, ":\t", (th42.time).ns, "\t ", th42.count.zeroFill , " tasks\t", "+/-002ns"
+    echo "Jitter ", th52.perc, ":\t", (th52.time).ns, "\t ", th52.count.zeroFill , " tasks\t", "+/-002ns"
     echo "Join:     \t", (ta - tasksSent).ns, "\t", "         \t", "Waiting all tasks to complete"
     echo "Snd+Join: \t", (ta - args[0][]).ns, "\t", ((ta - args[0][]) div MAX_ITEMS).ns, "/task\t", "Send + Join"
     echo "Total:    \t", (ta - epoc).ns
@@ -150,4 +155,4 @@ when isMainModule:
     freeShared sent
     freeShared args
 
-  main()
+  waitFor main()
