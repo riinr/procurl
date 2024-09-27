@@ -43,83 +43,83 @@ We run that 1000 times, get the 5 most commons results.
 
 ```
 Tasks:    	1000
-Setup:    	   s   ms   us167ns	         	Initializing
-Send  100%:	   s   ms097us862ns	   s   ms   us097ns/task	To schedule tasks
-Send   88%:	   s   ms   us072ns	 882 tasks	+/-2ns
-Send   07%:	   s   ms   us074ns	 077 tasks	+/-2ns
-Send   03%:	   s   ms   us070ns	 039 tasks	+/-2ns
-Send   00%:	   s   ms   us086ns	 001 tasks	+/-2ns
-Send   00%:	   s   ms   us   ns	     tasks	+/-2ns
-Jitter 99%:	   s   ms   us002ns	 999 tasks	+/-2ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-2ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-2ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-2ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-2ns
-Join:     	   s   ms   us038ns	         	Waiting all tasks to complete
-Snd+Join: 	   s   ms097us900ns	   s   ms   us097ns/task	Send + Join
-Total:    	   s   ms098us116ns
+Setup:    	  0s  0ms  0us167ns	         	Initializing
+Send  100%:	  0s  0ms097us862ns	  0s  0ms    0097ns/task	To schedule tasks
+Send   88%:	  0s  0ms  0us072ns	 882 tasks	+/-2ns
+Send   07%:	  0s  0ms  0us074ns	 077 tasks	+/-2ns
+Send   03%:	  0s  0ms  0us070ns	 039 tasks	+/-2ns
+Send   00%:	  0s  0ms  0us086ns	 001 tasks	+/-2ns
+Send   00%:	  0s  0ms  0us  0ns	   0 tasks	+/-2ns
+Jitter 99%:	  0s  0ms  0us002ns	 999 tasks	+/-2ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-2ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-2ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-2ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-2ns
+Join:     	  0s  0ms  0us038ns	         	Waiting all tasks to complete
+Snd+Join: 	  0s  0ms097us900ns	  0s  0ms  0us097ns/task	Send + Join
+Total:    	  0s  0ms098us116ns
 ```
 
 #### AsyncDispatch
 
 ```
 Tasks:    	1000
-Setup:    	   s   ms   us301ns	         	Initializing
-Send  100%:	   s   ms412us508ns	   s   ms   us412ns/task	To schedule tasks
-Send   54%:	   s   ms   us200ns	 547 tasks	+/-025ns
-Send   21%:	   s   ms   us175ns	 213 tasks	+/-025ns
-Send   16%:	   s   ms   us225ns	 164 tasks	+/-025ns
-Send   02%:	   s   ms   us275ns	 020 tasks	+/-025ns
-Send   01%:	   s   ms   us300ns	 017 tasks	+/-025ns
-Jitter 99%:	   s   ms   us002ns	 999 tasks	+/-002ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-002ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-002ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-002ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-002ns
-Join:     	   s   ms   us034ns	         	Waiting all tasks to complete
-Snd+Join: 	   s   ms412us542ns	   s   ms   us412ns/task	Send + Join
-Total:    	   s   ms412us882ns
+Setup:    	  0s  0ms  0us301ns	         	Initializing
+Send  100%:	  0s  0ms412us508ns	  0s  0ms  0us412ns/task	To schedule tasks
+Send   54%:	  0s  0ms  0us200ns	 547 tasks	+/-025ns
+Send   21%:	  0s  0ms  0us175ns	 213 tasks	+/-025ns
+Send   16%:	  0s  0ms  0us225ns	 164 tasks	+/-025ns
+Send   02%:	  0s  0ms  0us275ns	 020 tasks	+/-025ns
+Send   01%:	  0s  0ms  0us300ns	 017 tasks	+/-025ns
+Jitter 99%:	  0s  0ms  0us002ns	 999 tasks	+/-002ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-002ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-002ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-002ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-002ns
+Join:     	  0s  0ms  0us034ns	         	Waiting all tasks to complete
+Snd+Join: 	  0s  0ms412us542ns	  0s  0ms  0us412ns/task	Send + Join
+Total:    	  0s  0ms412us882ns
 ```
 
 #### Chronos
 
 ```
 Tasks:    	1000
-Setup:    	   s   ms   us127ns	         	Initializing
-Send  100%:	   s   ms267us686ns	   s   ms   us267ns/task	To schedule tasks
-Send   38%:	   s   ms   us225ns	 380 tasks	+/-025ns
-Send   31%:	   s   ms   us200ns	 310 tasks	+/-025ns
-Send   24%:	   s   ms   us250ns	 249 tasks	+/-025ns
-Send   05%:	   s   ms   us275ns	 052 tasks	+/-025ns
-Send   00%:	   s   ms   us300ns	 003 tasks	+/-025ns
-Jitter 99%:	   s   ms   us002ns	 999 tasks	+/-002ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-002ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-002ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-002ns
-Jitter 00%:	   s   ms   us   ns	     tasks	+/-002ns
-Join:     	   s   ms   us027ns	         	Waiting all tasks to complete
-Snd+Join: 	   s   ms267us713ns	   s   ms   us267ns/task	Send + Join
-Total:    	   s   ms267us887ns
+Setup:    	  0s  0ms  0us127ns	         	Initializing
+Send  100%:	  0s  0ms267us686ns	  0s  0ms  0us267ns/task	To schedule tasks
+Send   38%:	  0s  0ms  0us225ns	 380 tasks	+/-025ns
+Send   31%:	  0s  0ms  0us200ns	 310 tasks	+/-025ns
+Send   24%:	  0s  0ms  0us250ns	 249 tasks	+/-025ns
+Send   05%:	  0s  0ms  0us275ns	 052 tasks	+/-025ns
+Send   00%:	  0s  0ms  0us300ns	 003 tasks	+/-025ns
+Jitter 99%:	  0s  0ms  0us002ns	 999 tasks	+/-002ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-002ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-002ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-002ns
+Jitter 00%:	  0s  0ms  0us  0ns	   0 tasks	+/-002ns
+Join:     	  0s  0ms  0us027ns	         	Waiting all tasks to complete
+Snd+Join: 	  0s  0ms267us713ns	  0s  0ms  0us267ns/task	Send + Join
+Total:    	  0s  0ms267us887ns
 ```
 
 #### Dreads
 
 ```
 Tasks:    	1000
-Setup:    	   s   ms108us538ns	         	Initializing
-Send  100%:	   s001ms004us656ns	   s   ms001us004ns/task	To schedule tasks
-Send   21%:	   s   ms   us450ns	 214 tasks	+/-200ns
-Send   14%:	   s   ms   us900ns	 140 tasks	+/-200ns
-Send   11%:	   s   ms   us750ns	 116 tasks	+/-200ns
-Send   11%:	   s   ms001us050ns	 111 tasks	+/-200ns
-Send   10%:	   s   ms   us600ns	 107 tasks	+/-200ns
-Jitter 75%:	   s   ms   us200ns	 756 tasks	+/-150ns
-Jitter 09%:	   s   ms   us400ns	 093 tasks	+/-150ns
-Jitter 01%:	   s   ms001us200ns	 017 tasks	+/-150ns
-Jitter 01%:	   s   ms001us800ns	 016 tasks	+/-150ns
-Jitter 01%:	   s   ms001us600ns	 015 tasks	+/-150ns
-Join:     	   s   ms008us952ns	         	Waiting all tasks to complete
-Snd+Join: 	   s001ms013us608ns	   s   ms001us013ns/task	Send + Join
-Total:    	   s001ms339us347ns
+Setup:    	  0s  0ms108us538ns	         	Initializing
+Send  100%:	  0s001ms004us656ns	  0s  0ms001us004ns/task	To schedule tasks
+Send   21%:	  0s  0ms  0us450ns	 214 tasks	+/-200ns
+Send   14%:	  0s  0ms  0us900ns	 140 tasks	+/-200ns
+Send   11%:	  0s  0ms  0us750ns	 116 tasks	+/-200ns
+Send   11%:	  0s  0ms001us050ns	 111 tasks	+/-200ns
+Send   10%:	  0s  0ms  0us600ns	 107 tasks	+/-200ns
+Jitter 75%:	  0s  0ms  0us200ns	 756 tasks	+/-150ns
+Jitter 09%:	  0s  0ms  0us400ns	 093 tasks	+/-150ns
+Jitter 01%:	  0s  0ms001us200ns	 017 tasks	+/-150ns
+Jitter 01%:	  0s  0ms001us800ns	 016 tasks	+/-150ns
+Jitter 01%:	  0s  0ms001us600ns	 015 tasks	+/-150ns
+Join:     	  0s  0ms008us952ns	         	Waiting all tasks to complete
+Snd+Join: 	  0s001ms013us608ns	  0s  0ms001us013ns/task	Send + Join
+Total:    	  0s001ms339us347ns
 ```
 
