@@ -42,7 +42,7 @@ proc dequeueLast*[T](q: SharedQueue[T]): Option[T] =
   q.internal.getIt T.none:
     when defined debugLockedQueue: debugEcho getThreadId(), "Thr dequeue last ", T
     var prevLen = q.len
-    if q.size.compareExchange(prevLen, prevLen - 1, moAcquire, moRelaxed):
+    if prevLen != 0 and q.size.compareExchange(prevLen, prevLen - 1, moAcquire, moRelaxed):
       it[].popLast
     else:
       T.none
@@ -56,7 +56,7 @@ proc dequeue*[T](q: SharedQueue[T]): Option[T] =
   q.internal.getIt T.none:
     when defined debugLockedQueue: debugEcho getThreadId(), "Thr dequeue ", T
     var prevLen = q.len
-    if q.size.compareExchange(prevLen, prevLen - 1, moAcquire, moRelaxed):
+    if prevLen != 0 and q.size.compareExchange(prevLen, prevLen - 1, moAcquire, moRelaxed):
       it[].popFirst
     else:
       T.none
@@ -66,7 +66,6 @@ template whileEnqueue*[T](q: SharedQueue[T]; v: sink Option[T]; op: untyped): vo
   var vv = v
   while vv.isSome and not q.blocked:
     vv = q.enqueue(vv)
-
     if vv.isSome:
       op
       cpuRelax()
