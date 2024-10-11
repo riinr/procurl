@@ -17,11 +17,11 @@
 ##   Send   23%:	     000us750ns	 237 tasks	+/-250ns
 ##   Send   11%:	     001us000ns	 116 tasks	+/-250ns
 ##   Send   05%:	     001us250ns	 055 tasks	+/-250ns
-##   Jitter 83%:	     000us250ns	 832 tasks	+/-250ns
-##   Jitter 03%:	     001us500ns	 030 tasks	+/-250ns
-##   Jitter 02%:	     001us250ns	 025 tasks	+/-250ns
-##   Jitter 01%:	     001us750ns	 018 tasks	+/-250ns
-##   Jitter 01%:	     001us000ns	 013 tasks	+/-250ns
+##   Latency 83%:	     000us250ns	 832 tasks	+/-250ns
+##   Latency 03%:	     001us500ns	 030 tasks	+/-250ns
+##   Latency 02%:	     001us250ns	 025 tasks	+/-250ns
+##   Latency 01%:	     001us750ns	 018 tasks	+/-250ns
+##   Latency 01%:	     001us000ns	 013 tasks	+/-250ns
 ##   Join:      	     040us748ns	         	Waiting all tasks to complete
 ##   Snd+Join:  	     966us487ns	966ns/task	Send + Join
 ##   Total:     	001ms245us195ns
@@ -87,7 +87,7 @@ proc top_items*(a, b: ptr int64; clstr, I: int): Top =
       rd3.count = nd2.count
       nd2.time  = st1.time
       nd2.count = st1.count
-      st1.time  = k
+      st1.time  = k + clstr
       st1.count = v
     elif v > nd2.count:
       th5.time  = th4.time
@@ -96,22 +96,22 @@ proc top_items*(a, b: ptr int64; clstr, I: int): Top =
       th4.count = rd3.count
       rd3.time  = nd2.time
       rd3.count = nd2.count
-      nd2.time  = k
+      nd2.time  = k + clstr
       nd2.count = v
     elif v > rd3.count:
       th5.time  = th4.time
       th5.count = th4.count
       th4.time  = rd3.time
       th4.count = rd3.count
-      rd3.time  = k
+      rd3.time  = k + clstr
       rd3.count = v
     elif v > th4.count:
       th5.time  = th4.time
       th5.count = th4.count
-      th4.time  = k
+      th4.time  = k + clstr
       th4.count = v
     elif v > th5.count:
-      th5.time  = k
+      th5.time  = k + clstr
       th5.count = v
   st1.perc = Perc(tot: I, part: st1.count)
   nd2.perc = Perc(tot: I, part: nd2.count)
@@ -164,28 +164,28 @@ when isMainModule:
 
 
     for i in 0..<MAX_ITEMS:
-      assert tasks[i].isDone, "Task " & $i & " not DONE but" & $tasks[i].stat.load
+      assert tasks[i].isDone, "Task " & $i & " not DONE but " & $tasks[i].stat.load
 
     let ta = getMonoTime().ticks
 
     let (st11, nd21, rd31, th41, th51) = top_items(sent, res, 150, MAX_ITEMS)
-    let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 200, MAX_ITEMS)
+    let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 150, MAX_ITEMS)
 
     echo "Tasks:    \t", MAX_ITEMS
     echo "Setup:    \t", (send[0][] - epoc).ns, "\t", "         \t", "Initializing"
-    echo "Send  100%:\t", (tasksSent - args[0][]).ns,   "\t", ((tasksSent - args[0][]) div MAX_ITEMS).ns, "/task\t", "To schedule tasks"
-    echo "Send   ", st12.perc, ":\t", (st12.time).ns, "\t ", st12.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Send   ", nd22.perc, ":\t", (nd22.time).ns, "\t ", nd22.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Send   ", rd32.perc, ":\t", (rd32.time).ns, "\t ", rd32.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Send   ", th42.perc, ":\t", (th42.time).ns, "\t ", th42.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Send   ", th52.perc, ":\t", (th52.time).ns, "\t ", th52.count.zeroFill , " tasks\t", "+/-200ns"
-    echo "Jitter ", st11.perc, ":\t", (st11.time).ns, "\t ", st11.count.zeroFill , " tasks\t", "+/-150ns"
-    echo "Jitter ", nd21.perc, ":\t", (nd21.time).ns, "\t ", nd21.count.zeroFill , " tasks\t", "+/-150ns"
-    echo "Jitter ", rd31.perc, ":\t", (rd31.time).ns, "\t ", rd31.count.zeroFill , " tasks\t", "+/-150ns"
-    echo "Jitter ", th41.perc, ":\t", (th41.time).ns, "\t ", th41.count.zeroFill , " tasks\t", "+/-150ns"
-    echo "Jitter ", th51.perc, ":\t", (th51.time).ns, "\t ", th51.count.zeroFill , " tasks\t", "+/-150ns"
+    echo "Send  100%:\t", (tasksSent - args[0][]).ns,   ((tasksSent - args[0][]) div MAX_ITEMS).ns, "/task\t", "To schedule tasks"
+    echo "Send   ", st12.perc, ":\t", (st12.time - 149).ns, "~", st12.time, "ns", "\t", st12.count.zeroFill, " tasks\t"
+    echo "Send   ", nd22.perc, ":\t", (nd22.time - 149).ns, "~", nd22.time, "ns", "\t", nd22.count.zeroFill, " tasks\t"
+    echo "Send   ", rd32.perc, ":\t", (rd32.time - 149).ns, "~", rd32.time, "ns", "\t", rd32.count.zeroFill, " tasks\t"
+    echo "Send   ", th42.perc, ":\t", (th42.time - 149).ns, "~", th42.time, "ns", "\t", th42.count.zeroFill, " tasks\t"
+    echo "Send   ", th52.perc, ":\t", (th52.time - 149).ns, "~", th52.time, "ns", "\t", th52.count.zeroFill, " tasks\t"
+    echo "Latency ", st11.perc, ":\t", (st11.time - 149).ns, "~", st11.time, "ns", "\t", st11.count.zeroFill, " tasks\t"
+    echo "Latency ", nd21.perc, ":\t", (nd21.time - 149).ns, "~", nd21.time, "ns", "\t", nd21.count.zeroFill, " tasks\t"
+    echo "Latency ", rd31.perc, ":\t", (rd31.time - 149).ns, "~", rd31.time, "ns", "\t", rd31.count.zeroFill, " tasks\t"
+    echo "Latency ", th41.perc, ":\t", (th41.time - 149).ns, "~", th41.time, "ns", "\t", th41.count.zeroFill, " tasks\t"
+    echo "Latency ", th51.perc, ":\t", (th51.time - 149).ns, "~", th51.time, "ns", "\t", th51.count.zeroFill, " tasks\t"
     echo "Join:     \t", (ta - tasksSent).ns, "\t", "         \t", "Waiting all tasks to complete"
-    echo "Snd+Join: \t", (ta - args[0][]).ns, "\t", ((ta - args[0][]) div MAX_ITEMS).ns, "/task\t", "Send + Join"
+    echo "Snd+Join: \t", (ta - args[0][]).ns, ((ta - args[0][]) div MAX_ITEMS).ns, "/task\t", "Send + Join"
     echo "Total:    \t", (ta - epoc).ns
  
 
