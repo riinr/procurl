@@ -1,3 +1,4 @@
+{ pkgs, ...}:
 {
   # Name your shell environment
   devshell.name = "proccurl";
@@ -13,6 +14,7 @@
 
   # install a packages
   packages = [
+    pkgs.curlFull.out
     "nim2"
     "binutils"
   ];
@@ -56,4 +58,12 @@
     # RUN IPC main command as Client (server must be running)
     /tmp/proccurl-ipc-main 08x32 08x32 /tmp/ipc-*.mmap
   '';
+  files.alias.build = ''
+    # BUILD proccurl
+    nim c -d:nimDebugDlOpen -o:bin/proccurl src/proccurl.nim
+  '';
+  env = [
+    { name = "LD_LIBRARY_PATH"; prefix = "${pkgs.curlFull.out}/lib";}
+    { name = "PKG_CONFIG_PATH"; prefix = "${pkgs.curlFull.out}/lib/pkgconfig";}
+  ];
 }
