@@ -1,0 +1,88 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "openrpc": "1.2.1",
+    "info": {
+      "version": "1.0.0",
+      "title": "Curl"
+    },
+    "methods": [
+      {
+        "name": "/curl/v0/get",
+        "description": "simple get http",
+        "params": [
+          {
+            "name": "url",
+            "description": "url to be fetched",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "result": {
+          "name": "response",
+          "description": "response of your request",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "integer",
+                "description": "HTTP response code"
+              },
+              "url": {
+                "type": "string",
+                "description": "requested URL"
+              },
+              "body": {
+                "type": "string",
+                "description": "HTTP response body"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "/curl/v0/post",
+        "description": "simple post http",
+        "params": [
+          {
+            "name": "url",
+            "description": "url to post",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "body",
+            "description": "body to post",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "result": {
+          "name": "response",
+          "description": "response of your request",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "integer",
+                "description": "HTTP response code"
+              },
+              "url": {
+                "type": "string",
+                "description": "requested URL"
+              },
+              "body": {
+                "type": "string",
+                "description": "HTTP response body"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
