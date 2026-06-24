@@ -14,16 +14,16 @@ proc ns*(t: int64): NanoSeconds  = cast[NanoSeconds](t)
 
 converter ms*(t: Seconds):      MiliSeconds  = cast[MiliSeconds ](cast[int64](t) * 1000)
 converter us*(t: MiliSeconds):  MicroSeconds = cast[MicroSeconds](cast[int64](t) * 1000)
-converter us*(t: Seconds):      MicroSeconds = cast[MicroSeconds](cast[int64](t) * 1000_1000)
+converter us*(t: Seconds):      MicroSeconds = cast[MicroSeconds](cast[int64](t) * 1_000_000)
 converter ns*(t: MicroSeconds): NanoSeconds  = cast[NanoSeconds ](cast[int64](t) * 1000)
-converter ns*(t: MiliSeconds):  NanoSeconds  = cast[NanoSeconds ](cast[int64](t) * 1000_1000)
-converter ns*(t: Seconds):      NanoSeconds  = cast[NanoSeconds ](cast[int64](t) * 1000_1000_1000)
+converter ns*(t: MiliSeconds):  NanoSeconds  = cast[NanoSeconds ](cast[int64](t) * 1_000_000)
+converter ns*(t: Seconds):      NanoSeconds  = cast[NanoSeconds ](cast[int64](t) * 1_000_000_000)
 
 
-converter ss* (t: NanoSeconds):  Seconds      = cast[Seconds     ](cast[int64](t) div 1000_1000_1000)
-converter ss* (t: MicroSeconds): Seconds      = cast[Seconds     ](cast[int64](t) div 1000_1000)
+converter ss* (t: NanoSeconds):  Seconds      = cast[Seconds     ](cast[int64](t) div 1_000_000_000)
+converter ss* (t: MicroSeconds): Seconds      = cast[Seconds     ](cast[int64](t) div 1_000_000)
 converter ss* (t: MiliSeconds):  Seconds      = cast[Seconds     ](cast[int64](t) div 1000)
-converter sm* (t: NanoSeconds):  MiliSeconds  = cast[MiliSeconds ](cast[int64](t) div 1000_1000)
+converter sm* (t: NanoSeconds):  MiliSeconds  = cast[MiliSeconds ](cast[int64](t) div 1_000_000)
 converter sm* (t: MicroSeconds): MiliSeconds  = cast[MiliSeconds ](cast[int64](t) div 1000)
 converter su* (t: NanoSeconds):  MicroSeconds = cast[MicroSeconds](cast[int64](t) div 1000)
 
@@ -113,8 +113,8 @@ proc sleep*(ns = 1.ns; us = 0.us; ms = 0.ms; s = 0.s): void =
   b.tv_nsec = 0
   discard posix.nanosleep(a, b)
 
-const SPIN_MAX  = 02_000
-const SLEEP_MIN = 50_000
+const SPIN_MAX  = 02_000  ## 02us
+const SLEEP_MIN = 50_000  ## 50us
 
 proc spin*(ns = 1.ns; us = 0.us; ms = 0.ms; s = 0.s): int64 {.discardable.}=
   ## Loose time doing something sily
