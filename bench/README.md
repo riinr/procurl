@@ -31,10 +31,12 @@ schedule fn(t1)         # await/send/schedule if is the case
 let t2 = getMonoTime()
 
 let send   = t2 - t0    # How much time it takes to schedule the task,
-                        # makes more sense in threads
+                        # makes more sense in threads where is may spend
+                        # time waiting for locks
 
 let jitter = t1 - t0    # How much time it takes to other thread run
                         # this task. again makes more sense in threads
+                        # where fn 
 ```
 
 We run that 1000 times, get the 5 most commons results.
