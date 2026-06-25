@@ -5,6 +5,7 @@ author        = "hugosenari"
 description   = "Curl IPC"
 license       = "MIT"
 srcDir        = "src"
+bin           = @["proccurl"]
 
 
 # Dependencies

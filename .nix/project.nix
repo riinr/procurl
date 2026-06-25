@@ -11,16 +11,31 @@
   files.gitignore.template."Global/Backup"   = true;
   files.gitignore.template."Global/Diff"     = true;
   files.gitignore.pattern."*\n!/**/\n!*.*"   = true;
+  files.gitignore.pattern.".*" = true;
 
   # install a packages
   packages = [
     pkgs.curlFull.out
-    "nim2"
-    "binutils"
+    pkgs.nim2
+    pkgs.nimlangserver
+    pkgs.binutils
+    pkgs.vscodium
+    pkgs.opencode
+    pkgs.nodejs
+    pkgs.ripgrep
   ];
 
   # configure direnv .envrc file
   files.direnv.enable = true;
+
+  files.alias.find-executables = ''
+    # Find executable files
+    find . -type f -executable \
+      -not -name '*.sample' \
+      -not -name '*.sh' \
+      -not -path '*/.*' \
+      $@
+  '';
 
   files.alias.docs = ''
     # Compiles all docs

@@ -153,12 +153,12 @@ when isMainModule:
 
       send[i] = getMonoTime().ticks
       args[i] = getMonoTime().ticks
+
       pool.whileSchedule tasks[i].some:
-       args[i] = getMonoTime().ticks
+        args[i] = getMonoTime().ticks
       sent[i] = getMonoTime().ticks
 
     let tasksSent = getMonoTime().ticks
-
     pool.whileJoin:
       spin()
 
@@ -168,7 +168,7 @@ when isMainModule:
 
     let ta = getMonoTime().ticks
 
-    let (st11, nd21, rd31, th41, th51) = top_items(sent, res, 150, MAX_ITEMS)
+    let (st11, nd21, rd31, th41, th51) = top_items(sent, res,  150, MAX_ITEMS)
     let (st12, nd22, rd32, th42, th52) = top_items(send, sent, 150, MAX_ITEMS)
 
     echo "Tasks:    \t", MAX_ITEMS

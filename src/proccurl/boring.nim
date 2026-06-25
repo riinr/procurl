@@ -1,6 +1,6 @@
 ## This is a Ring Buffer implementation
 ##
-## It has some advanteges
+## It has some advantages
 ## - Works with Multiple Producer Multiple Consumer
 ## - Is reasonable simple:
 ##   - You can only write next if next is writable
@@ -54,12 +54,12 @@ proc `$`*[T](r: ptr Slot[T]): string =
   r.repr
 
 
-template state*     [T](r: ptr Slot[T]; v: IStat): void =
+template state*[T](r: ptr Slot[T]; v: IStat): void =
   ## Set Slot stat
   r.stat.store cast[uint8](v), moAcquireRelease
 
 
-template state*     [T](r: ptr Slot[T]): IStat =
+template state*[T](r: ptr Slot[T]): IStat =
   ## Get Slot stat
   cast[IStat](r.stat.load moAcquireRelease)
 
@@ -144,11 +144,11 @@ type
 
 
 template producer*[SLOTS: static int](p: ptr SP[SLOTS]): Idx[SLOTS] =
-  ## Get producer pointer positon
+  ## Get producer pointer position
   p.writer
 
 template producer*[SLOTS: static int](p: ptr MP[SLOTS]): Idx[SLOTS] =
-  ## Get producer pointer positon
+  ## Get producer pointer position
   p.writer.load moRelaxed
 
 template inc*     [SLOTS: static int](p: ptr SP[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
@@ -172,15 +172,15 @@ template inc*     [SLOTS: static int](p: ptr P[SLOTS]): Idx[SLOTS] =
   p.inc p.producer
 
 template consumer*[SLOTS: static int](c: ptr SC[SLOTS]): Idx[SLOTS] =
-  ## Get consumer pointer current positon
+  ## Get consumer pointer current position
   c.reader
 
 template consumer*[SLOTS: static int](c: ptr MC[SLOTS]): Idx[SLOTS] =
-  ## Get consumer current positon
+  ## Get consumer current position
   c.reader.load moRelaxed
 
 template dec*     [SLOTS: static int](c: ptr SC[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move consumer to next positon
+  ## Move consumer to next position
   var reader = cast[uint32](prev) + 1
   if reader == SLOTS:
     reader = 0
@@ -188,7 +188,7 @@ template dec*     [SLOTS: static int](c: ptr SC[SLOTS]; prev: Idx[SLOTS]): Idx[S
   c.reader
 
 template dec*     [SLOTS: static int](c: ptr MC[SLOTS]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move consumer pointer to next positon
+  ## Move consumer pointer to next position
   var reader = cast[uint32](prev) + 1
   if reader == SLOTS:
     reader = 0
@@ -197,7 +197,7 @@ template dec*     [SLOTS: static int](c: ptr MC[SLOTS]; prev: Idx[SLOTS]): Idx[S
 
 
 template dec*     [SLOTS: static int](c: ptr C[SLOTS]): Idx[SLOTS] =
-  ## Move consumer pointer to next positon
+  ## Move consumer pointer to next position
   c.dec c.consumer
 
 
@@ -237,19 +237,19 @@ template consumer*    [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Qu
   q.c.addr.consumer
 
 template inc*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move Queue to next producer positon
+  ## Move Queue to next producer position
   q.p.addr.inc prev
 
 template dec*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; prev: Idx[SLOTS]): Idx[SLOTS] =
-  ## Move Queue to next consumer positon
+  ## Move Queue to next consumer position
   q.c.addr.dec prev
 
 template inc*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): Idx[SLOTS] =
-  ## Move Queue to next producer positon
+  ## Move Queue to next producer position
   q.p.addr.inc
 
 template dec*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): Idx[SLOTS] =
-  ## Move Queue to next consumer positon
+  ## Move Queue to next consumer position
   q.c.addr.dec
 
 proc `$`*             [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): string =
@@ -315,8 +315,8 @@ proc dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T, TT](
   ## BEWARE of side effects
   ##
   ## Not only in queue or buffer:
-  ## - v will change when SUCCEDED only if SUCCEDED
-  ## - i will be updated with next position only if SUCCEDED
+  ## - v will change when SUCCEEDED only if SUCCEEDED
+  ## - i will be updated with next position only if SUCCEEDED
   ## - s  will change when EMPTY or BUSY (this happen very often)
   ##   - s == RD means i position is EMPTY
   ##   - s == RR means i position is BUSY, other thread is dequeuing

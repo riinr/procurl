@@ -6,7 +6,7 @@
   inputs.dsf.inputs.nixpkgs.follows = "nixpkgs";
 
   outputs = inputs: inputs.dsf.lib.shell inputs [
-    # "hello"      # import nix package
-    ./project.nix  # import nix module
+    ./.nix/project.nix   # import nix module
+    ./.nix/opencode.nix  # import opencode configuration as nix module
   ];
 }
