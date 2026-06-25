@@ -31,7 +31,6 @@ First version will use CURL v8, but since methods aren't well defined yet, this 
 echo '
 {"jsonrpc": "2.0", "id": 1, "method": "/_API/v1"}
 {"jsonrpc": "2.0", "id": 2, "method": "/curl/v0/get",  "params": { "url": "https://yesno.wtf/api"}}
-      
 {"jsonrpc": "2.0", "id": 3, "method": "/curl/v0/post", "params": { "url": "https://yesno.wtf/api", "body": "{ \"json\": \"as body\"}"}}
 '|\
 proccurl connect --protocol stdio-v1+jsonl-v1+json-rpc-v2
