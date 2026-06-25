@@ -123,6 +123,64 @@ suite "buildSuccess":
     let resp = buildSuccess(msg, 200, "url", multiLine)
     check resp["result"]["body"].getStr == "line1\nline2\nline3"
 
+  test "result.headers is empty object when no headers provided":
+    let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
+    let resp = buildSuccess(msg, 200, "http://example.com", "ok")
+    check resp["result"]["headers"].kind == JObject
+    check resp["result"]["headers"].len == 0
+
+  test "result.headers present when headers parameter provided":
+    let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
+    let hdrs = @[("Content-Type", "application/json")].toWebby
+    let resp = buildSuccess(msg, 200, "http://example.com", "ok", hdrs)
+    check resp["result"]["headers"]["Content-Type"].getStr == "application/json"
+
+  test "result.headers handles multiple key-value pairs":
+    let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
+    let hdrs = @[("Content-Type", "application/json"), ("Accept", "text/html")].toWebby
+    let resp = buildSuccess(msg, 200, "http://example.com", "ok", hdrs)
+    check resp["result"]["headers"]["Content-Type"].getStr == "application/json"
+    check resp["result"]["headers"]["Accept"].getStr == "text/html"
+
+
+# ---------------------------------------------------------------------------
+# getHeaders — pure function tests
+# ---------------------------------------------------------------------------
+
+suite "getHeaders":
+
+  test "no headers key returns empty headers":
+    let params = %*{"url": "http://example.com"}
+    let hdrs = getHeaders(params)
+    check hdrs.toBase.len == 0
+
+  test "headers is not a JObject returns empty headers":
+    let params = %*{"url": "http://example.com", "headers": "string"}
+    let hdrs = getHeaders(params)
+    check hdrs.toBase.len == 0
+
+  test "empty headers object returns empty headers":
+    let params = %*{"url": "http://example.com", "headers": {}}
+    let hdrs = getHeaders(params)
+    check hdrs.toBase.len == 0
+
+  test "single header key-value pair":
+    let params = %*{"url": "http://example.com", "headers": {"Content-Type": "application/json"}}
+    let hdrs = getHeaders(params)
+    check hdrs["Content-Type"] == "application/json"
+
+  test "multiple header key-value pairs":
+    let params = %*{"url": "http://example.com", "headers": {"Content-Type": "application/json", "Accept": "text/html"}}
+    let hdrs = getHeaders(params)
+    check hdrs["Content-Type"] == "application/json"
+    check hdrs["Accept"] == "text/html"
+
+  test "headers with special characters in values":
+    let params = %*{"url": "http://example.com", "headers": {"Authorization": "Bearer token-123!@#", "X-Custom": "a=b&c=d"}}
+    let hdrs = getHeaders(params)
+    check hdrs["Authorization"] == "Bearer token-123!@#"
+    check hdrs["X-Custom"] == "a=b&c=d"
+
 
 # ---------------------------------------------------------------------------
 # Constants validation
@@ -220,6 +278,18 @@ suite "handleMethod":
     let resp = handleMethod(curl, msg)
     check resp["jsonrpc"].getStr == "2.0"
 
+  test "_API/v1 with id preserves the id":
+    let msg = %*{"jsonrpc": "2.0", "id": 42, "method": "/_API/v1"}
+    let resp = handleMethod(curl, msg)
+    check resp["id"].getInt == 42
+    check resp["result"]["openrpc"].getStr == "1.2.1"
+
+  test "_API/v1 without id uses default template id":
+    let msg = %*{"jsonrpc": "2.0", "method": "/_API/v1"}
+    let resp = handleMethod(curl, msg)
+    check resp["id"].getInt == 1
+    check resp["result"]["openrpc"].getStr == "1.2.1"
+
 
 # ---------------------------------------------------------------------------
 # parseCliArgs — pure function tests
@@ -305,3 +375,31 @@ suite "processJsonRpcLine":
     let line = """{"jsonrpc":"2.0","id":1,"method":"/_API/v1"}"""
     let resp = processJsonRpcLine(curl, line)
     check resp.endsWith("\n")
+
+  test "_API/v1 without id uses default template id":
+    let curl = newCurly()
+    let line = """{"jsonrpc":"2.0","method":"/_API/v1"}"""
+    let resp = processJsonRpcLine(curl, line)
+    let parsed = parseJson(resp)
+    check parsed["id"].getInt == 1
+    check parsed["result"]["openrpc"].getStr == "1.2.1"
+    check resp.endsWith("\n")
+
+
+# ---------------------------------------------------------------------------
+# CliActionKind enum validation
+# ---------------------------------------------------------------------------
+
+suite "CliActionKind":
+
+  test "cakShowProtocols is ord 0":
+    check ord(cakShowProtocols) == 0
+
+  test "cakShowProtocolHelp is ord 1":
+    check ord(cakShowProtocolHelp) == 1
+
+  test "cakConnect is ord 2":
+    check ord(cakConnect) == 2
+
+  test "cakUnknown is ord 3":
+    check ord(cakUnknown) == 3
