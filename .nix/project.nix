@@ -16,7 +16,8 @@
   # install a packages
   packages = [
     pkgs.curlFull.out
-    pkgs.nim2
+    pkgs.nim
+    pkgs.nimble
     pkgs.nimlangserver
     pkgs.binutils
     pkgs.vscodium
