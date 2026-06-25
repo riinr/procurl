@@ -25,6 +25,11 @@
   # configure direnv .envrc file
   files.direnv.enable = true;
 
+  files.alias.find-executables = ''
+    # Find executable files
+    find . -type f -executable -not -name '*.sample' -not -name '*.sh' $@
+  '';
+
   files.alias.docs = ''
     # Compiles all docs
     find $PRJ_ROOT/src/proccurl/ -maxdepth 1 -name '*.nim' \
