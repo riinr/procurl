@@ -1,5 +1,7 @@
-{ pkgs, ... }:
 {
+  files.gitignore.pattern."opencode.json" = true;
+  files.gitignore.pattern.".opencode" = true;
+  files.gitignore.pattern.".codebase" = true;
   files.json."/opencode.json" = {
     # Opencode configuration — writes to opencode.json
     "$schema" = "https://opencode.ai/config.json";

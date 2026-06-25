@@ -11,6 +11,7 @@
   files.gitignore.template."Global/Backup"   = true;
   files.gitignore.template."Global/Diff"     = true;
   files.gitignore.pattern."*\n!/**/\n!*.*"   = true;
+  files.gitignore.pattern.".*" = true;
 
   # install a packages
   packages = [
