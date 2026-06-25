@@ -49,6 +49,7 @@ It should be similar to [UCSPI](https://cr.yp.to/proto/ucspi.txt), but, we may d
     1. stdio-v1+jsonl-v1+json-rpc-v2
 
 __Example:__
+
 ```
 echo '
 {"jsonrpc": "2.0", "id": 1, "method": "/_API/v1"}

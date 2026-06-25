@@ -16,12 +16,13 @@
   # install a packages
   packages = [
     pkgs.curlFull.out
-    "nim2"
-    "nimlangserver"
-    "binutils"
-    "vscodium"
-    "opencode"
-    "nodejs"
+    pkgs.nim2
+    pkgs.nimlangserver
+    pkgs.binutils
+    pkgs.vscodium
+    pkgs.opencode
+    pkgs.nodejs
+    pkgs.ripgrep
   ];
 
   # configure direnv .envrc file
@@ -29,7 +30,11 @@
 
   files.alias.find-executables = ''
     # Find executable files
-    find . -type f -executable -not -name '*.sample' -not -name '*.sh' $@
+    find . -type f -executable \
+      -not -name '*.sample' \
+      -not -name '*.sh' \
+      -not -path '*/.*' \
+      $@
   '';
 
   files.alias.docs = ''
