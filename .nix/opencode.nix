@@ -2,15 +2,15 @@
 {
   files.json."/opencode.json" = {
     # Opencode configuration — writes to opencode.json
-    opencode."$schema" = "https://opencode.ai/config.json";
-    opencode.skills.paths = [ "./nim-skills" ];
-    opencode.lsp = {
+    "$schema" = "https://opencode.ai/config.json";
+    skills.paths = [ "./.opencode/nim-skills" ];
+    lsp = {
       nim = {
         command = [ "nimlangserver" ];
         extensions = [ ".nim" ];
       };
     };
-    opencode.mcp = {
+    mcp = {
       hydradb = {
         enabled = true;
         type = "local";
