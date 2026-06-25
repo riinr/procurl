@@ -35,3 +35,11 @@ echo '
 '|\
 proccurl connect --protocol stdio-v1+jsonl-v1+json-rpc-v2
 ```
+
+## References
+
+- POSIX stdio
+- [JSONL 1.0](https://jsonlines.org/)
+- [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
+- [OpenRPC](https://open-rpc.org)
+
