@@ -16,7 +16,10 @@
   packages = [
     pkgs.curlFull.out
     "nim2"
+    "nimlangserver"
     "binutils"
+    "vscodium"
+    "opencode"
   ];
 
   # configure direnv .envrc file
