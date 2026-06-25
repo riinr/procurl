@@ -37,6 +37,8 @@ Dividing our application in two:
 
 It should be similar to [UCSPI](https://cr.yp.to/proto/ucspi.txt), but, we may differ in communication.
 
+It should be similar to [MCP](https://modelcontextprotocol.io/docs/getting-started/intro), but, we may differ in communication.
+
 
 ## More details
 

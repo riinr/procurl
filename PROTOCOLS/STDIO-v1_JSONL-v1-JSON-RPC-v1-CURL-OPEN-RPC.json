@@ -18,6 +18,13 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "headers",
+            "description": "request headers",
+            "schema": {
+              "type": "object"
+            }
           }
         ],
         "result": {
@@ -37,6 +44,10 @@
               "body": {
                 "type": "string",
                 "description": "HTTP response body"
+              },
+              "headers": {
+                "type": "object",
+                "description": "HTTP response headers"
               }
             }
           }
@@ -51,6 +62,13 @@
             "description": "url to post",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "headers",
+            "description": "request headers",
+            "schema": {
+              "type": "object"
             }
           },
           {
@@ -78,6 +96,10 @@
               "body": {
                 "type": "string",
                 "description": "HTTP response body"
+              },
+              "headers": {
+                "type": "object",
+                "description": "HTTP response headers"
               }
             }
           }
