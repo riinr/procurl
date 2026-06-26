@@ -219,28 +219,40 @@ suite "handleMethod":
 
   test "GET with missing params returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/get"}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no params found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/get"
 
   test "GET with params but no url returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/get", "params": {}}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no param url found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/get"
 
   test "POST with missing params returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/post"}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no params found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/post"
 
   test "POST with params but no url returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/post", "params": {}}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no param url found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/post"
@@ -248,7 +260,10 @@ suite "handleMethod":
   test "POST with url but no body returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/post",
                  "params": {"url": "http://example.com"}}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no param body found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/post"
@@ -256,39 +271,104 @@ suite "handleMethod":
   test "POST with non-string body returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/post",
                  "params": {"url": "http://example.com", "body": 123}}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, body should be a string"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/post"
 
   test "Unknown method returns Method not found error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/unknown/method"}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Method not found"
     check resp["error"]["data"]["method"].getStr == "/unknown/method"
 
   test "Unknown method preserves input id":
     let msg = %*{"jsonrpc": "2.0", "id": 99, "method": "/does/not/exist"}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["id"].getInt == 99
 
   test "Error responses always return jsonrpc 2.0":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/get"}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["jsonrpc"].getStr == "2.0"
 
   test "_API/v1 with id preserves the id":
     let msg = %*{"jsonrpc": "2.0", "id": 42, "method": "/_API/v1"}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["id"].getInt == 42
     check resp["result"]["openrpc"].getStr == "1.2.1"
 
   test "_API/v1 without id uses default template id":
     let msg = %*{"jsonrpc": "2.0", "method": "/_API/v1"}
-    let resp = handleMethod(curl, msg)
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
     check resp["id"].getInt == 1
     check resp["result"]["openrpc"].getStr == "1.2.1"
+
+
+# ---------------------------------------------------------------------------
+# handleMethod — non-JObject input
+# ---------------------------------------------------------------------------
+
+  test "non-JObject input returns error":
+    let msg = %*["not", "an", "object"]
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
+    check resp["error"]["code"].getInt == -32601
+    check resp["error"]["message"].getStr == "Method not found"
+
+
+suite "handleMethod batch":
+
+  let curl = newCurly()
+
+  test "batch with missing params returns error":
+    let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/batch"}
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
+    check resp["error"]["code"].getInt == -32601
+    check resp["error"]["message"].getStr == "Invalid method parameters, no params found"
+
+  test "batch with missing requests returns error":
+    let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/batch", "params": {}}
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
+    check resp["error"]["code"].getInt == -32601
+    check resp["error"]["message"].getStr == "Invalid method parameters, no param request found"
+
+  test "batch with non-array requests returns error":
+    let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/batch",
+                 "params": {"requests": "not-an-array"}}
+    var resp: JsonNode
+    for r in handleMethod(curl, msg):
+      resp = r
+      break
+    check resp["error"]["code"].getInt == -32601
+    check resp["error"]["message"].getStr == "Invalid method parameters, request should be an array"
 
 
 # ---------------------------------------------------------------------------
@@ -335,21 +415,30 @@ suite "processJsonRpcLine":
 
   test "_API/v1 returns openrpc result":
     let line = """{"jsonrpc":"2.0","id":1,"method":"/_API/v1"}"""
-    let resp = processJsonRpcLine(curl, line)
+    var resp: string
+    for r in processJsonRpcLine(curl, line):
+      resp = r
+      break
     let parsed = parseJson(resp)
     check parsed["result"]["openrpc"].getStr == "1.2.1"
     check resp.endsWith("\n")
 
   test "GET without params returns error":
     let line = """{"jsonrpc":"2.0","id":1,"method":"/curl/v0/get"}"""
-    let resp = processJsonRpcLine(curl, line)
+    var resp: string
+    for r in processJsonRpcLine(curl, line):
+      resp = r
+      break
     let parsed = parseJson(resp)
     check parsed["error"]["code"].getInt == -32601
     check resp.endsWith("\n")
 
   test "POST without body returns error":
     let line = """{"jsonrpc":"2.0","id":1,"method":"/curl/v0/post","params":{"url":"http://example.com"}}"""
-    let resp = processJsonRpcLine(curl, line)
+    var resp: string
+    for r in processJsonRpcLine(curl, line):
+      resp = r
+      break
     let parsed = parseJson(resp)
     check parsed["error"]["code"].getInt == -32601
     check parsed["error"]["message"].getStr == "Invalid method parameters, no param body found"
@@ -357,7 +446,10 @@ suite "processJsonRpcLine":
 
   test "POST with non-string body returns error":
     let line = """{"jsonrpc":"2.0","id":1,"method":"/curl/v0/post","params":{"url":"http://example.com","body":123}}"""
-    let resp = processJsonRpcLine(curl, line)
+    var resp: string
+    for r in processJsonRpcLine(curl, line):
+      resp = r
+      break
     let parsed = parseJson(resp)
     check parsed["error"]["code"].getInt == -32601
     check parsed["error"]["message"].getStr == "Invalid method parameters, body should be a string"
@@ -365,7 +457,10 @@ suite "processJsonRpcLine":
 
   test "Unknown method returns error":
     let line = """{"jsonrpc":"2.0","id":1,"method":"/nothing"}"""
-    let resp = processJsonRpcLine(curl, line)
+    var resp: string
+    for r in processJsonRpcLine(curl, line):
+      resp = r
+      break
     let parsed = parseJson(resp)
     check parsed["error"]["code"].getInt == -32601
     check parsed["error"]["message"].getStr == "Method not found"
@@ -373,13 +468,19 @@ suite "processJsonRpcLine":
 
   test "Response ends with newline":
     let line = """{"jsonrpc":"2.0","id":1,"method":"/_API/v1"}"""
-    let resp = processJsonRpcLine(curl, line)
+    var resp: string
+    for r in processJsonRpcLine(curl, line):
+      resp = r
+      break
     check resp.endsWith("\n")
 
   test "_API/v1 without id uses default template id":
     let curl = newCurly()
     let line = """{"jsonrpc":"2.0","method":"/_API/v1"}"""
-    let resp = processJsonRpcLine(curl, line)
+    var resp: string
+    for r in processJsonRpcLine(curl, line):
+      resp = r
+      break
     let parsed = parseJson(resp)
     check parsed["id"].getInt == 1
     check parsed["result"]["openrpc"].getStr == "1.2.1"

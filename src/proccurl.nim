@@ -1,10 +1,10 @@
-import std/[os,json,syncio,strutils]
+import std/[json,syncio,strutils]
 import curly
 
 
 const STDIO_JSONL_JSONRPC*         = "stdio-v1+jsonl-v1+json-rpc-v2"
-const STDIO_JSONL_JSONRPC_HELP*    = staticRead "../PROTOCOLS/STDIO-v1_JSONL-v1-JSON-RPC-v1-CURL.md"
-const STDIO_JSONL_JSONRPC_OPENRPC* = staticRead "../PROTOCOLS/STDIO-v1_JSONL-v1-JSON-RPC-v1-CURL-OPEN-RPC.json"
+const STDIO_JSONL_JSONRPC_HELP*    = staticRead "../PROTOCOLS/STDIO-v1_JSONL-v1_JSON-RPC-v2_OPEN-RPC-v1.md"
+const STDIO_JSONL_JSONRPC_OPENRPC* = staticRead "../PROTOCOLS/STDIO-v1_JSONL-v1_JSON-RPC-v2_OPEN-RPC-v1.json"
 const STDIO_JSONL_JSONRPC_ERR      = """
 {
   "jsonrpc": "2.0",
@@ -67,41 +67,74 @@ proc getHeaders*(params: JsonNode): HttpHeaders =
       result = hdrs.toWebby
 
 
-proc handleMethod*(curl: Curly; msg: JsonNode): JsonNode =
-  let meth = msg["method"].getStr
-  if msg["method"].getStr == "/_API/v1":
-    var resp = parseJson STDIO_JSONL_JSONRPC_OPENRPC
-    if msg.contains("id"): resp["id"] = msg["id"]
-    return resp
-  elif meth == "/curl/v0/get":
-    if not msg.contains("params"):
-      return buildError(msg, -32601, "Invalid method parameters, no params found")
-    if not msg["params"].contains("url"):
-      return buildError(msg, -32601, "Invalid method parameters, no param url found")
-    let curled = curl.get(
-        msg["params"]["url"].getStr,
-        headers=msg["params"].getHeaders)
-    return buildSuccess(msg, curled.code, curled.url, curled.body, curled.headers)
-  elif meth == "/curl/v0/post":
-    if not msg.contains("params"):
-      return buildError(msg, -32601, "Invalid method parameters, no params found")
-    if not msg["params"].contains("url"):
-      return buildError(msg, -32601, "Invalid method parameters, no param url found")
-    if not msg["params"].contains("body"):
-      return buildError(msg, -32601, "Invalid method parameters, no param body found")
-    if msg["params"]["body"].kind != JString:
-      return buildError(msg, -32601, "Invalid method parameters, body should be a string")
-    let curled = curl.post(
-        msg["params"]["url"].getStr,
-        body=msg["params"]["body"].getStr,
-        headers=msg["params"].getHeaders)
-    return buildSuccess(msg, curled.code, curled.url, curled.body, curled.headers)
-  else:
+iterator handleMethod*(curl: Curly; msg: JsonNode): JsonNode =
+  var result = newJNull()
+  if msg.kind != JObject:
     result = parseJson STDIO_JSONL_JSONRPC_ERR
-    result["id"] = msg["id"]
+    result["id"] = msg{"id"}
     result["error"]["code"]    = %(-32601)
     result["error"]["message"] = %"Method not found"
     result["error"]["data"]    = msg
+    yield result
+  else:
+    let meth = msg["method"].getStr
+    if msg["method"].getStr == "/_API/v1":
+      var resp = parseJson STDIO_JSONL_JSONRPC_OPENRPC
+      if msg.contains("id"): resp["id"] = msg["id"]
+      yield resp
+    elif meth == "/curl/v0/get":
+      if not msg.contains("params"):
+        yield buildError(msg, -32601, "Invalid method parameters, no params found")
+      elif not msg["params"].contains("url"):
+        yield buildError(msg, -32601, "Invalid method parameters, no param url found")
+      else: 
+        let curled = curl.get(
+            msg["params"]["url"].getStr,
+            headers=msg["params"].getHeaders)
+        yield buildSuccess(msg, curled.code, curled.url, curled.body, curled.headers)
+    elif meth == "/curl/v0/post":
+      if not msg.contains("params"):
+        yield buildError(msg, -32601, "Invalid method parameters, no params found")
+      elif not msg["params"].contains("url"):
+        yield buildError(msg, -32601, "Invalid method parameters, no param url found")
+      elif not msg["params"].contains("body"):
+        yield buildError(msg, -32601, "Invalid method parameters, no param body found")
+      elif msg["params"]["body"].kind != JString:
+        yield buildError(msg, -32601, "Invalid method parameters, body should be a string")
+      else:
+        let curled = curl.post(
+            msg["params"]["url"].getStr,
+            body=msg["params"]["body"].getStr,
+            headers=msg["params"].getHeaders)
+        yield buildSuccess(msg, curled.code, curled.url, curled.body, curled.headers)
+    elif meth == "/curl/v0/batch":
+      if not msg.contains("params"):
+        yield buildError(msg, -32601, "Invalid method parameters, no params found")
+      elif not msg["params"].contains("requests"):
+        yield buildError(msg, -32601, "Invalid method parameters, no param request found")
+      elif msg["params"]["requests"].kind != JArray:
+        yield buildError(msg, -32601, "Invalid method parameters, request should be an array")
+      else:
+        var batch: RequestBatch
+        for req in msg["params"]["requests"].items:
+          if req["method"].getStr == "/curl/v0/get":
+            batch.get(
+              req["url"].getStr,
+              headers=req.getHeaders)
+          if req["method"].getStr == "/curl/v0/post":
+            batch.post(
+              req["url"].getStr,
+              body=req["body"].getStr,
+              headers=req.getHeaders)
+          for (curled, error) in curl.makeRequests(batch):
+            yield buildSuccess(msg, curled.code, curled.url, curled.body, curled.headers)
+    else:
+      result = parseJson STDIO_JSONL_JSONRPC_ERR
+      result["id"] = msg["id"]
+      result["error"]["code"]    = %(-32601)
+      result["error"]["message"] = %"Method not found"
+      result["error"]["data"]    = msg
+      yield result
 
 
 type CliActionKind* = enum
@@ -128,11 +161,12 @@ proc parseCliArgs*(args: openArray[string]): CliActionKind =
   return cakUnknown
 
 
-proc processJsonRpcLine*(curl: Curly; line: string): string =
+iterator processJsonRpcLine*(curl: Curly; line: string): string =
   ## Process a single JSON-RPC line from a connect session.
   ## Returns the response string (no I/O).
   let msg = parseJson line
-  return $handleMethod(curl, msg) & "\n"
+  for resp in handleMethod(curl, msg):
+    yield $resp & "\n"
 
 
 proc main*(sin, sout, serr: File; params: seq[string]): void =
@@ -146,7 +180,8 @@ proc main*(sin, sout, serr: File; params: seq[string]): void =
     var line {.cursor.}: string
     while readLine(sin, line):
       if line.strip() == "": continue
-      write sout, processJsonRpcLine(curl, line)
+      for resp in processJsonRpcLine(curl, line):
+        write sout, resp 
   of cakUnknown:
     write serr, UNKNOWN_COMMAND_OR_PROTOCOL
     quit 1
@@ -154,6 +189,7 @@ proc main*(sin, sout, serr: File; params: seq[string]): void =
 
 
 when isMainModule:
+  import std/os
   var params = newSeq[string]()
   for i in 1..paramCount():
     params.add i.paramStr
