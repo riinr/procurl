@@ -69,76 +69,76 @@ suite "buildSuccess":
 
   test "returns jsonrpc 2.0":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
-    let resp = buildSuccess(msg, 200, "http://example.com", "ok")
+    let resp = buildSuccess(msg["id"], 200, "http://example.com", "ok")
     check resp["jsonrpc"].getStr == "2.0"
 
   test "id matches input msg id (integer)":
     let msg = %*{"jsonrpc": "2.0", "id": 42, "method": "test"}
-    let resp = buildSuccess(msg, 200, "url", "body")
+    let resp = buildSuccess(msg["id"], 200, "url", "body")
     check resp["id"].getInt == 42
 
   test "id matches input msg id (string)":
     let msg = %*{"jsonrpc": "2.0", "id": "req-002", "method": "test"}
-    let resp = buildSuccess(msg, 200, "url", "body")
+    let resp = buildSuccess(msg["id"], 200, "url", "body")
     check resp["id"].getStr == "req-002"
 
   test "id matches input msg id (null)":
     let msg = %*{"jsonrpc": "2.0", "id": nil, "method": "test"}
-    let resp = buildSuccess(msg, 200, "url", "body")
+    let resp = buildSuccess(msg["id"], 200, "url", "body")
     check resp["id"].kind == JNull
 
   test "result.code matches code parameter":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
-    let resp = buildSuccess(msg, 200, "url", "body")
+    let resp = buildSuccess(msg["id"], 200, "url", "body")
     check resp["result"]["code"].getInt == 200
 
   test "result.code handles zero":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
-    let resp = buildSuccess(msg, 0, "url", "body")
+    let resp = buildSuccess(msg["id"], 0, "url", "body")
     check resp["result"]["code"].getInt == 0
 
   test "result.url matches url parameter":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
-    let resp = buildSuccess(msg, 200, "http://example.com/foo", "body")
+    let resp = buildSuccess(msg["id"], 200, "http://example.com/foo", "body")
     check resp["result"]["url"].getStr == "http://example.com/foo"
 
   test "result.url handles empty string":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
-    let resp = buildSuccess(msg, 200, "", "body")
+    let resp = buildSuccess(msg["id"], 200, "", "body")
     check resp["result"]["url"].getStr == ""
 
   test "result.body matches body parameter":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
-    let resp = buildSuccess(msg, 200, "url", "response body")
+    let resp = buildSuccess(msg["id"], 200, "url", "response body")
     check resp["result"]["body"].getStr == "response body"
 
   test "result.body handles empty string":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
-    let resp = buildSuccess(msg, 200, "url", "")
+    let resp = buildSuccess(msg["id"], 200, "url", "")
     check resp["result"]["body"].getStr == ""
 
   test "result.body handles multi-line content":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
     let multiLine = "line1\nline2\nline3"
-    let resp = buildSuccess(msg, 200, "url", multiLine)
+    let resp = buildSuccess(msg["id"], 200, "url", multiLine)
     check resp["result"]["body"].getStr == "line1\nline2\nline3"
 
   test "result.headers is empty object when no headers provided":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
-    let resp = buildSuccess(msg, 200, "http://example.com", "ok")
+    let resp = buildSuccess(msg["id"], 200, "http://example.com", "ok")
     check resp["result"]["headers"].kind == JObject
     check resp["result"]["headers"].len == 0
 
   test "result.headers present when headers parameter provided":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
     let hdrs = @[("Content-Type", "application/json")].toWebby
-    let resp = buildSuccess(msg, 200, "http://example.com", "ok", hdrs)
+    let resp = buildSuccess(msg["id"], 200, "http://example.com", "ok", hdrs)
     check resp["result"]["headers"]["Content-Type"].getStr == "application/json"
 
   test "result.headers handles multiple key-value pairs":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
     let hdrs = @[("Content-Type", "application/json"), ("Accept", "text/html")].toWebby
-    let resp = buildSuccess(msg, 200, "http://example.com", "ok", hdrs)
+    let resp = buildSuccess(msg["id"], 200, "http://example.com", "ok", hdrs)
     check resp["result"]["headers"]["Content-Type"].getStr == "application/json"
     check resp["result"]["headers"]["Accept"].getStr == "text/html"
 

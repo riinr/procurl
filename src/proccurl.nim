@@ -43,9 +43,9 @@ proc buildError*(msg: JsonNode; code: int; message: string): JsonNode =
   result["error"]["data"]    = msg
 
 
-proc buildSuccess*(msg: JsonNode; code: int; url, body: string; headers: HttpHeaders = emptyHttpHeaders()): JsonNode =
+proc buildSuccess*(id: JsonNode; code: int; url, body: string; headers: HttpHeaders = emptyHttpHeaders()): JsonNode =
   result = parseJson STDIO_JSONL_JSONRPC_OK
-  result["id"] = msg["id"]
+  result["id"] = id
   result["result"]["code"]    = %code
   result["result"]["url"]     = %url
   result["result"]["body"]    = %body
@@ -91,7 +91,7 @@ iterator handleMethod*(curl: Curly; msg: JsonNode): JsonNode =
         let curled = curl.get(
             msg["params"]["url"].getStr,
             headers=msg["params"].getHeaders)
-        yield buildSuccess(msg, curled.code, curled.url, curled.body, curled.headers)
+        yield buildSuccess(msg{"id"}, curled.code, curled.url, curled.body, curled.headers)
     elif meth == "/curl/v0/post":
       if not msg.contains("params"):
         yield buildError(msg, -32601, "Invalid method parameters, no params found")
@@ -106,7 +106,7 @@ iterator handleMethod*(curl: Curly; msg: JsonNode): JsonNode =
             msg["params"]["url"].getStr,
             body=msg["params"]["body"].getStr,
             headers=msg["params"].getHeaders)
-        yield buildSuccess(msg, curled.code, curled.url, curled.body, curled.headers)
+        yield buildSuccess(msg{"id"}, curled.code, curled.url, curled.body, curled.headers)
     elif meth == "/curl/v0/batch":
       if not msg.contains("params"):
         yield buildError(msg, -32601, "Invalid method parameters, no params found")
@@ -119,15 +119,18 @@ iterator handleMethod*(curl: Curly; msg: JsonNode): JsonNode =
         for req in msg["params"]["requests"].items:
           if req["method"].getStr == "/curl/v0/get":
             batch.get(
-              req["url"].getStr,
-              headers=req.getHeaders)
+              req["params"]["url"].getStr,
+              headers=req["params"].getHeaders,
+              tag= $req{"id"})
           if req["method"].getStr == "/curl/v0/post":
             batch.post(
-              req["url"].getStr,
-              body=req["body"].getStr,
-              headers=req.getHeaders)
-          for (curled, error) in curl.makeRequests(batch):
-            yield buildSuccess(msg, curled.code, curled.url, curled.body, curled.headers)
+              req["params"]["url"].getStr,
+              body=req["params"]["body"].getStr,
+              headers=req["params"].getHeaders,
+              tag= $req{"id"})
+        for (curled, error) in curl.makeRequests(batch):
+          var id = parseJson curled.request.tag
+          yield buildSuccess(id, curled.code, curled.url, curled.body, curled.headers)
     else:
       result = parseJson STDIO_JSONL_JSONRPC_ERR
       result["id"] = msg["id"]
