@@ -1,4 +1,4 @@
-import std/[unittest, json, strutils]
+import std/[unittest, json, strutils, streams]
 import proccurl
 import curly
 
@@ -422,3 +422,84 @@ suite "CliActionKind":
 
   test "cakUnknown is ord 3":
     check ord(cakUnknown) == 3
+
+
+# ---------------------------------------------------------------------------
+# writeResponse — template tests (pure, no network)
+# ---------------------------------------------------------------------------
+
+suite "writeResponse":
+
+  test "success response produces valid JSON-RPC success":
+    var sout = newStringStream()
+    let response = Response(
+      code: 200,
+      url: "http://example.com",
+      headers: emptyHttpHeaders(),
+      body: "response body",
+      request: RequestInfo(verb: "GET", url: "http://example.com", tag: "1")
+    )
+    writeResponse(sout, response, "")
+    let result = parseJson(sout.data)
+    check result["jsonrpc"].getStr == "2.0"
+    check result["id"].getInt == 1
+    check result["result"]["code"].getInt == 200
+    check result["result"]["url"].getStr == "http://example.com"
+    check result["result"]["body"].getStr == "response body"
+    check result["result"]["headers"].kind == JObject
+
+  test "success response with string id":
+    var sout = newStringStream()
+    let response = Response(
+      code: 200,
+      url: "http://example.com",
+      headers: emptyHttpHeaders(),
+      body: "ok",
+      request: RequestInfo(verb: "GET", url: "http://example.com", tag: "\"req-abc\"")
+    )
+    writeResponse(sout, response, "")
+    let result = parseJson(sout.data)
+    check result["id"].getStr == "req-abc"
+
+  test "error response contains code -32000 and message":
+    var sout = newStringStream()
+    let response = Response(
+      code: 0,
+      url: "",
+      headers: emptyHttpHeaders(),
+      body: "",
+      request: RequestInfo(verb: "GET", url: "", tag: "1")
+    )
+    writeResponse(sout, response, "something went wrong")
+    let result = parseJson(sout.data)
+    check result["jsonrpc"].getStr == "2.0"
+    check result["id"].getInt == 1
+    check result["error"]["code"].getInt == -32000
+    check result["error"]["message"].getStr == "something went wrong"
+
+  test "null id produces id JNull":
+    var sout = newStringStream()
+    let response = Response(
+      code: 200,
+      url: "http://example.com",
+      headers: emptyHttpHeaders(),
+      body: "ok",
+      request: RequestInfo(verb: "GET", url: "http://example.com", tag: "null")
+    )
+    writeResponse(sout, response, "")
+    let result = parseJson(sout.data)
+    check result["id"].kind == JNull
+
+  test "empty headers produces empty result.headers":
+    var sout = newStringStream()
+    let response = Response(
+      code: 200,
+      url: "http://example.com",
+      headers: emptyHttpHeaders(),
+      body: "ok",
+      request: RequestInfo(verb: "GET", url: "http://example.com", tag: "1")
+    )
+    writeResponse(sout, response, "")
+    let result = parseJson(sout.data)
+    check result["result"]["headers"].kind == JObject
+    check result["result"]["headers"].len == 0
