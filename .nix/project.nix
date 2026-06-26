@@ -76,7 +76,7 @@
   '';
   files.alias.build = ''
     # BUILD proccurl
-    nim c -d:nimDebugDlOpen -o:bin/proccurl src/proccurl.nim
+    nim c --threads:on -o:bin/proccurl src/proccurl.nim
   '';
   env = [
     { name = "LD_LIBRARY_PATH"; prefix = "${pkgs.curlFull.out}/lib";}
