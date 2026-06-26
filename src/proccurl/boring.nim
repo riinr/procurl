@@ -252,6 +252,14 @@ template dec*         [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Qu
   ## Move Queue to next consumer position
   q.c.addr.dec
 
+template sizes*        [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): uint32 =
+  ## Get slot content size at index i
+  q[i].size
+
+template stats*        [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]; i: Idx[SLOTS]): IStat =
+  ## Get slot state at index i
+  q[i].state
+
 proc `$`*             [SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](q: ptr Queue[SLOTS, P, C, T]): string =
   ## Convert our queue to string
   q.repr
@@ -357,7 +365,8 @@ template dequeue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
 
 
 proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
-    arena: pointer
+    arena: pointer;
+    arenaSize: int;
 ): ptr Queue[SLOTS, P, C, T] =
   ## create newQueue
   ##
@@ -365,6 +374,8 @@ proc newQueue*[SLOTS: static int, P: P[SLOTS], C: C[SLOTS], T](
   ## - P    : Single (SP) or Multiple (MP) producers
   ## - C    : Single (SC) or Multiple (MC) consumers
   ## - T    : object Type
+  let required = sizeof(Queue[SLOTS, P, C, T])
+  assert arenaSize >= required, "arena too small: " & $arenaSize & " < " & $required
   result = cast[ptr Queue[SLOTS, P, C, T]](arena)
 
 

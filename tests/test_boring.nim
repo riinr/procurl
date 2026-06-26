@@ -9,12 +9,12 @@ const ARENA_LEN = static  sizeOfQ[SLOTS, uint8]()
 test "Fail with arena smaller than required":
   var arena: array[1, uint8]
   expect(AssertionDefect):
-    discard newQueue[SLOTS, SP[SLOTS], SC[SLOTS], uint8](arena)
+    discard newQueue[SLOTS, SP[SLOTS], SC[SLOTS], uint8](addr arena, arena.len)
 
 
 test "Works with appropriate size":
   var arena: array[ARENA_LEN, uint8]
-  discard newQueue[SLOTS, SP[SLOTS], SC[SLOTS], uint8](arena)
+  discard newQueue[SLOTS, SP[SLOTS], SC[SLOTS], uint8](addr arena, arena.len)
 
 
 test "Can enqueue":

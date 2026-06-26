@@ -1,0 +1,152 @@
+{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": {
+    "info": {
+      "title": "Curl",
+      "version": "1.0.0"
+    },
+    "methods": [
+      {
+        "description": "simple get http",
+        "name": "/curl/v0/get",
+        "params": [
+          {
+            "description": "url to post",
+            "name": "url",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "request headers",
+            "name": "headers",
+            "schema": {
+              "type": "object"
+            }
+          }
+        ],
+        "result": {
+          "description": "response of your request",
+          "name": "response",
+          "schema": {
+            "properties": {
+              "body": {
+                "description": "HTTP response body",
+                "type": "string"
+              },
+              "code": {
+                "description": "HTTP response code",
+                "type": "integer"
+              },
+              "headers": {
+                "description": "HTTP response headers",
+                "type": "object"
+              },
+              "url": {
+                "description": "requested URL",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        }
+      },
+      {
+        "description": "simple post http",
+        "name": "/curl/v0/post",
+        "params": [
+          {
+            "description": "url to post",
+            "name": "url",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "request headers",
+            "name": "headers",
+            "schema": {
+              "type": "object"
+            }
+          }
+        ],
+        "result": {
+          "description": "response of your request",
+          "name": "response",
+          "schema": {
+            "properties": {
+              "body": {
+                "description": "HTTP response body",
+                "type": "string"
+              },
+              "code": {
+                "description": "HTTP response code",
+                "type": "integer"
+              },
+              "headers": {
+                "description": "HTTP response headers",
+                "type": "object"
+              },
+              "url": {
+                "description": "requested URL",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        }
+      },
+      {
+        "description": "multi requests",
+        "name": "/curl/v0/batch",
+        "params": [
+          {
+            "description": "Array of requests to be performed in batch",
+            "name": "requests",
+            "schema": {
+              "items": {
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "params": {
+                    "properties": {
+                      "body": {
+                        "description": "body to post",
+                        "type": "string"
+                      },
+                      "header": {
+                        "description": "request headers",
+                        "type": "object"
+                      },
+                      "url": {
+                        "description": "url to post",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "id",
+                  "method",
+                  "params"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          }
+        ]
+      }
+    ],
+    "openrpc": "1.2.1"
+  }
+}
