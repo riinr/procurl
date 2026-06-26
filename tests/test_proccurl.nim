@@ -60,6 +60,21 @@ suite "buildError":
     let resp = buildError(msg, -32000, "error")
     check resp["error"]["data"]["id"].getInt == 99
 
+  test "msg is nil uses default id JNull":
+    check buildError(nil, -1, "err")["id"].kind == JNull
+
+  test "msg is array uses default id JNull":
+    check buildError(%*[1,2], -1, "err")["id"].kind == JNull
+
+  test "msg object without id uses default id JNull":
+    check buildError(%*{"x":1}, -1, "err")["id"].kind == JNull
+
+  test "explicit id used when msg is nil":
+    check buildError(nil, -1, "err", %*{"my": "id"})["id"]["my"].getStr == "id"
+
+  test "explicit id used when msg is array":
+    check buildError(%*[1], -1, "err", %*42)["id"].getInt == 42
+
 
 # ---------------------------------------------------------------------------
 # buildSuccess — pure function tests
@@ -142,6 +157,11 @@ suite "buildSuccess":
     check resp["result"]["headers"]["Content-Type"].getStr == "application/json"
     check resp["result"]["headers"]["Accept"].getStr == "text/html"
 
+  test "body that is valid JSON is parsed into result.body":
+    let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "test"}
+    let resp = buildSuccess(msg["id"], 200, "url", """{"key":"val"}""")
+    check resp["result"]["body"]["key"].getStr == "val"
+
 
 # ---------------------------------------------------------------------------
 # getHeaders — pure function tests
@@ -150,34 +170,34 @@ suite "buildSuccess":
 suite "getHeaders":
 
   test "no headers key returns empty headers":
-    let params = %*{"url": "http://example.com"}
-    let hdrs = getHeaders(params)
+    let req  = %*{"params": {"url": "http://example.com"}}
+    let hdrs = getHeaders(req)
     check hdrs.toBase.len == 0
 
   test "headers is not a JObject returns empty headers":
-    let params = %*{"url": "http://example.com", "headers": "string"}
-    let hdrs = getHeaders(params)
+    let req  = %*{"params": {"url": "http://example.com", "headers": "string"}}
+    let hdrs = getHeaders(req)
     check hdrs.toBase.len == 0
 
   test "empty headers object returns empty headers":
-    let params = %*{"url": "http://example.com", "headers": {}}
-    let hdrs = getHeaders(params)
+    let req  = %*{"params": {"url": "http://example.com", "headers": {}}}
+    let hdrs = getHeaders(req)
     check hdrs.toBase.len == 0
 
   test "single header key-value pair":
-    let params = %*{"url": "http://example.com", "headers": {"Content-Type": "application/json"}}
-    let hdrs = getHeaders(params)
+    let req  = %*{"params": {"url": "http://example.com", "headers": {"Content-Type": "application/json"}}}
+    let hdrs = getHeaders(req)
     check hdrs["Content-Type"] == "application/json"
 
   test "multiple header key-value pairs":
-    let params = %*{"url": "http://example.com", "headers": {"Content-Type": "application/json", "Accept": "text/html"}}
-    let hdrs = getHeaders(params)
+    let req  = %*{"params": {"url": "http://example.com", "headers": {"Content-Type": "application/json", "Accept": "text/html"}}}
+    let hdrs = getHeaders(req)
     check hdrs["Content-Type"] == "application/json"
     check hdrs["Accept"] == "text/html"
 
   test "headers with special characters in values":
-    let params = %*{"url": "http://example.com", "headers": {"Authorization": "Bearer token-123!@#", "X-Custom": "a=b&c=d"}}
-    let hdrs = getHeaders(params)
+    let req  = %*{"params": {"url": "http://example.com", "headers": {"Authorization": "Bearer token-123!@#", "X-Custom": "a=b&c=d"}}}
+    let hdrs = getHeaders(req)
     check hdrs["Authorization"] == "Bearer token-123!@#"
     check hdrs["X-Custom"] == "a=b&c=d"
 
@@ -358,7 +378,7 @@ suite "handleMethod batch":
       resp = r
       break
     check resp["error"]["code"].getInt == -32601
-    check resp["error"]["message"].getStr == "Invalid method parameters, no param request found"
+    check resp["error"]["message"].getStr == "Invalid method parameters, requests should be an array"
 
   test "batch with non-array requests returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/batch",
@@ -368,7 +388,7 @@ suite "handleMethod batch":
       resp = r
       break
     check resp["error"]["code"].getInt == -32601
-    check resp["error"]["message"].getStr == "Invalid method parameters, request should be an array"
+    check resp["error"]["message"].getStr == "Invalid method parameters, requests should be an array"
 
 
 # ---------------------------------------------------------------------------
@@ -503,3 +523,40 @@ suite "writeResponse":
     let result = parseJson(sout.data)
     check result["result"]["headers"].kind == JObject
     check result["result"]["headers"].len == 0
+
+
+# ---------------------------------------------------------------------------
+# getMethod — pure function tests
+# ---------------------------------------------------------------------------
+
+suite "getMethod":
+
+  test "nil input returns empty string":
+    check getMethod(nil) == ""
+
+  test "array input returns empty string":
+    check getMethod(%*[1,2,3]) == ""
+
+  test "string input returns empty string":
+    check getMethod(%*"hello") == ""
+
+  test "object without method key returns empty string":
+    check getMethod(%*{"id": 1}) == ""
+
+  test "method is not a string returns empty string":
+    check getMethod(%*{"method": 123}) == ""
+
+  test "unknown method returns empty string":
+    check getMethod(%*{"method": "/foo/bar"}) == ""
+
+  test "_API/v1 method returns _API/v1":
+    check getMethod(%*{"method": "/_API/v1"}) == "/_API/v1"
+
+  test "curl/v0/get method returns curl/v0/get":
+    check getMethod(%*{"method": "/curl/v0/get"}) == "/curl/v0/get"
+
+  test "curl/v0/post method returns curl/v0/post":
+    check getMethod(%*{"method": "/curl/v0/post"}) == "/curl/v0/post"
+
+  test "curl/v0/batch method returns curl/v0/batch":
+    check getMethod(%*{"method": "/curl/v0/batch"}) == "/curl/v0/batch"

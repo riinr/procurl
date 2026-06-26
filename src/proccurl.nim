@@ -35,9 +35,13 @@ Connect protocol:  `proccurl connect   --protocol {protocol}`
 """
 
 
-proc buildError*(msg: JsonNode; code: int; message: string): JsonNode =
+proc buildError*(msg: JsonNode; code: int; message: string; id: JsonNode = newJNull()): JsonNode =
   result = parseJson STDIO_JSONL_JSONRPC_ERR
-  result["id"] = msg["id"]
+  result["id"] =
+    if msg != nil and msg.kind == JObject and msg.contains("id"):
+      msg["id"]
+    else:
+      id
   result["error"]["code"]    = %code
   result["error"]["message"] = %message
   result["error"]["data"]    = msg
@@ -48,105 +52,100 @@ proc buildSuccess*(id: JsonNode; code: int; url, body: string; headers: HttpHead
   result["id"] = id
   result["result"]["code"]    = %code
   result["result"]["url"]     = %url
-  result["result"]["body"]    = %body
   result["result"]["headers"] = block:
     var hdrs = %* {}
     for kv in headers.items:
       hdrs{kv[0]} = % kv[1]
     hdrs
+  result["result"]["body"]    = block:
+    try:
+      body.parseJson
+    except:
+      %body
 
-
-proc getHeaders*(params: JsonNode): HttpHeaders =
+proc getHeaders*(msg: JsonNode): HttpHeaders =
   result = emptyHttpHeaders()
-  if params.contains("headers") and
-     params["headers"].kind == JObject:
+  if msg.contains("params") and
+     msg["params"].contains("headers") and
+     msg["params"]["headers"].kind == JObject:
     var hdrs = newSeq[(string, string)]()
-    for k, n in params["headers"].pairs:
+    for k, n in msg["params"]["headers"].pairs:
       hdrs.add((k, n.getStr))
     if hdrs.len > 0:
       result = hdrs.toWebby
 
 
+proc getMethod*(msg: JsonNode): string =
+  if msg == nil or
+   msg.kind != JObject or
+   not(msg.contains("method")) or
+   not(msg["method"].kind == JString) or
+   not(msg["method"].getStr in [
+     "/_API/v1", "/curl/v0/get", "/curl/v0/post", "/curl/v0/batch"
+   ]):
+     ""
+  else:
+    msg["method"].getStr
+
+proc getUrl(msg: JsonNode): string = msg["params"]["url"].getStr
+proc getBody(msg: JsonNode): string = msg["params"]["body"].getStr
+
 iterator handleMethod*(curl: Curly; msg: JsonNode): JsonNode {.closure.}=
   let empty = newJNull()
   while true:
     var batch: RequestBatch
-    if msg.kind != JObject:
-      var err = newJNull()
-      err = parseJson STDIO_JSONL_JSONRPC_ERR
-      err["id"] = msg{"id"}
-      err["error"]["code"]    = %(-32601)
-      err["error"]["message"] = %"Method not found"
-      err["error"]["data"]    = msg
-      yield err
-    else:
-      let meth = msg["method"].getStr
-      if meth == "/_API/v1":
-        var resp = parseJson STDIO_JSONL_JSONRPC_OPENRPC
-        if msg.contains("id"): resp["id"] = msg["id"]
-        yield resp
-      elif meth == "/curl/v0/get":
-        if not msg.contains "params":
-          yield buildError(msg, -32601, "Invalid method parameters, no params found")
-        elif not msg["params"].contains "url":
-          yield buildError(msg, -32601, "Invalid method parameters, no param url found")
-        else:
+    let meth = msg.getMethod
+    if meth == "":
+      yield buildError(msg, -32601, "Method not found")
+    elif meth in ["/curl/v0/get", "/curl/v0/post", "/curl/v0/batch"] and not(msg.contains "params"):
+      yield buildError(msg, -32601, "Invalid method parameters, no params found")
+    elif meth in ["/curl/v0/get", "/curl/v0/post"] and not msg["params"].contains "url":
+      yield buildError(msg, -32601, "Invalid method parameters, no param url found")
+    elif meth in ["/curl/v0/post"] and not(msg["params"].contains "body"):
+      yield buildError(msg, -32601, "Invalid method parameters, no param body found")
+    elif meth in ["/curl/v0/post"] and msg["params"]["body"].kind != JString:
+      yield buildError(msg, -32601, "Invalid method parameters, body should be a string")
+    elif meth in ["/curl/v0/batch"] and (not(msg["params"].contains "requests") or msg["params"]["requests"].kind != JArray):
+      yield buildError(msg, -32601, "Invalid method parameters, requests should be an array")
+    elif meth == "/_API/v1":
+      var resp = parseJson STDIO_JSONL_JSONRPC_OPENRPC
+      if msg.contains("id"): resp["id"] = msg["id"]
+      yield resp
+    elif meth == "/curl/v0/get":
+      batch.get(
+          msg.getUrl,
+          headers= msg.getHeaders,
+          tag=     $msg["id"])
+      curl.startRequests(batch)
+      yield empty
+    elif meth == "/curl/v0/post":
+      batch.post(
+          msg.getUrl,
+          body=    msg.getBody,
+          headers= msg.getHeaders,
+          tag=     $msg["id"])
+      curl.startRequests batch
+      yield empty
+    elif meth == "/curl/v0/batch":
+      for req in msg["params"]["requests"].items:
+        var id =
+          if req.contains "id":
+            req["id"]
+          else:
+            newJNull()
+        if "/curl/v0/get" == req.getMethod:
           batch.get(
-              msg["params"]["url"].getStr,
-              headers=msg["params"].getHeaders,tag= $msg["id"])
-          curl.startRequests(batch)
-          yield empty
-      elif meth == "/curl/v0/post":
-        if not msg.contains "params":
-          yield buildError(msg, -32601, "Invalid method parameters, no params found")
-        elif not msg["params"].contains "url":
-          yield buildError(msg, -32601, "Invalid method parameters, no param url found")
-        elif not msg["params"].contains "body":
-          yield buildError(msg, -32601, "Invalid method parameters, no param body found")
-        elif msg["params"]["body"].kind != JString:
-          yield buildError(msg, -32601, "Invalid method parameters, body should be a string")
-        else:
+            req.getUrl,
+            headers= req.getHeaders,
+            tag=     $id)
+        elif "/curl/v0/post" == req.getMethod:
           batch.post(
-              msg["params"]["url"].getStr,
-              body=msg["params"]["body"].getStr,
-              headers=msg["params"].getHeaders,tag= $msg["id"])
-          curl.startRequests batch
-          yield empty
-      elif meth == "/curl/v0/batch":
-        if not msg.contains "params":
-          yield buildError(msg, -32601, "Invalid method parameters, no params found")
-        elif not msg["params"].contains "requests":
-          yield buildError(msg, -32601, "Invalid method parameters, no param request found")
-        elif msg["params"]["requests"].kind != JArray:
-          yield buildError(msg, -32601, "Invalid method parameters, request should be an array")
-        else:
-          for req in msg["params"]["requests"].items:
-            var id =
-              if req.contains "id":
-                req["id"]
-              else:
-                newJNull()
-            if req["method"].getStr == "/curl/v0/get":
-              batch.get(
-                req["params"]["url"].getStr,
-                headers=req["params"].getHeaders,
-                tag= $id)
-            elif req["method"].getStr == "/curl/v0/post":
-              batch.post(
-                req["params"]["url"].getStr,
-                body=req["params"]["body"].getStr,
-                headers=req["params"].getHeaders,
-                tag= $id)
-          curl.startRequests batch
-          yield newJNull()
-      else:
-        var err = newJNull()
-        err = parseJson STDIO_JSONL_JSONRPC_ERR
-        err["id"] = msg["id"]
-        err["error"]["code"]    = %(-32601)
-        err["error"]["message"] = %"Method not found"
-        err["error"]["data"]    = msg
-        yield err
+            req.getUrl,
+            body=    req.getBody,
+            headers= req.getHeaders,
+            tag=     $id)
+      curl.startRequests batch
+      yield empty
 
 
 type CliActionKind* = enum
@@ -182,7 +181,7 @@ template writeResponse*(sout: Stream; response: Response; error: string) =
     write sout, $buildError(%*{"id": id}, -32000, error) & "\n"
 
 
-template writeResponse*(sout: Stream; curl: Curly) =
+template poolResponse*(sout: Stream; curl: Curly) =
   let answer = curl.pollForResponse
   if answer.isSome:
     sout.writeResponse answer.get.response, answer.get.error
@@ -201,7 +200,6 @@ proc main*(params: seq[string], sin, sout, serr: Stream): void =
   of cakShowProtocolHelp:
     sout.write STDIO_JSONL_JSONRPC_HELP
   of cakConnect:
-    var line {.cursor.}: string
     var err {.cursor.}: JsonNode
     var batchCurl = handleMethod
     for line in sin.lines:
@@ -209,9 +207,9 @@ proc main*(params: seq[string], sin, sout, serr: Stream): void =
         err = curl.batchCurl line.parseJson
         if err.kind != JNull:
           write sout, $err & "\n"
-      sout.writeResponse curl
+      sout.poolResponse curl
     while curl.hasRequests:
-      waitResponse sout, curl
+      sout.waitResponse curl
   of cakUnknown:
     serr.write UNKNOWN_COMMAND_OR_PROTOCOL
     quit 1
