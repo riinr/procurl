@@ -21,6 +21,11 @@
           HYDRA_DB_TENANT_ID = "hugosenari";
         };
       };
+      nimctx = {
+        enabled = true;
+        type = "local";
+        command = [ "nimctx" ];
+      };
     };
   };
 }
