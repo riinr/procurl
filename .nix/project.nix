@@ -24,6 +24,7 @@
     pkgs.opencode
     pkgs.nodejs
     pkgs.ripgrep
+    pkgs.gcc
   ];
 
   # configure direnv .envrc file
