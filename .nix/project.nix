@@ -82,6 +82,5 @@
   env = [
     { name = "LD_LIBRARY_PATH"; prefix = "${pkgs.curlFull.out}/lib";}
     { name = "PKG_CONFIG_PATH"; prefix = "${pkgs.curlFull.out}/lib/pkgconfig";}
-    { name = "PATH";            prefix = "$PATH:~/.nimble/bin";}
   ];
 }
