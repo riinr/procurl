@@ -171,7 +171,7 @@ proc connect(sin, sout: Stream): void =
   var err {.cursor.}: JsonNode
   var i   {.cursor.} = 0
   for line in sin.getLine:
-    if line == "":
+    if line.len == 0:
       i -= sout.poolResponse curl
     else:
       var batch: RequestBatch
