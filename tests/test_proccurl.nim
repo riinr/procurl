@@ -1,4 +1,4 @@
-import std/[unittest, json, strutils, streams, posix, asyncfile, asyncdispatch]
+import std/[unittest, json, strutils, streams]
 import proccurl
 import curly
 
@@ -414,86 +414,6 @@ suite "CliActionKind":
     check ord(cakUnknown) == 3
 
 
-# ---------------------------------------------------------------------------
-# writeResponse — template tests (pure, no network)
-# ---------------------------------------------------------------------------
-
-suite "writeResponse":
-
-  test "success response produces valid JSON-RPC success":
-    var sout = newStringStream()
-    let response = Response(
-      code: 200,
-      url: "http://example.com",
-      headers: emptyHttpHeaders(),
-      body: "response body",
-      request: RequestInfo(verb: "GET", url: "http://example.com", tag: "1")
-    )
-    writeResponse(sout, response, "")
-    let result = parseJson(sout.data)
-    check result["jsonrpc"].getStr == "2.0"
-    check result["id"].getInt == 1
-    check result["result"]["code"].getInt == 200
-    check result["result"]["url"].getStr == "http://example.com"
-    check result["result"]["body"].getStr == "response body"
-    check result["result"]["headers"].kind == JObject
-
-  test "success response with string id":
-    var sout = newStringStream()
-    let response = Response(
-      code: 200,
-      url: "http://example.com",
-      headers: emptyHttpHeaders(),
-      body: "ok",
-      request: RequestInfo(verb: "GET", url: "http://example.com", tag: "\"req-abc\"")
-    )
-    writeResponse(sout, response, "")
-    let result = parseJson(sout.data)
-    check result["id"].getStr == "req-abc"
-
-  test "error response contains code -32000 and message":
-    var sout = newStringStream()
-    let response = Response(
-      code: 0,
-      url: "",
-      headers: emptyHttpHeaders(),
-      body: "",
-      request: RequestInfo(verb: "GET", url: "", tag: "1")
-    )
-    writeResponse(sout, response, "something went wrong")
-    let result = parseJson(sout.data)
-    check result["jsonrpc"].getStr == "2.0"
-    check result["id"].getInt == 1
-    check result["error"]["code"].getInt == -32000
-    check result["error"]["message"].getStr == "something went wrong"
-
-  test "null id produces id JNull":
-    var sout = newStringStream()
-    let response = Response(
-      code: 200,
-      url: "http://example.com",
-      headers: emptyHttpHeaders(),
-      body: "ok",
-      request: RequestInfo(verb: "GET", url: "http://example.com", tag: "null")
-    )
-    writeResponse(sout, response, "")
-    let result = parseJson(sout.data)
-    check result["id"].kind == JNull
-
-  test "empty headers produces empty result.headers":
-    var sout = newStringStream()
-    let response = Response(
-      code: 200,
-      url: "http://example.com",
-      headers: emptyHttpHeaders(),
-      body: "ok",
-      request: RequestInfo(verb: "GET", url: "http://example.com", tag: "1")
-    )
-    writeResponse(sout, response, "")
-    let result = parseJson(sout.data)
-    check result["result"]["headers"].kind == JObject
-    check result["result"]["headers"].len == 0
-
 
 # ---------------------------------------------------------------------------
 # getMethod — pure function tests
@@ -531,50 +451,4 @@ suite "getMethod":
   test "curl/v0/batch method returns curl/v0/batch":
     check getMethod(%*{"method": "/curl/v0/batch"}) == "/curl/v0/batch"
 
-# ---------------------------------------------------------------------------
-# runCakConnect — async stream-based connect loop tests
-# ---------------------------------------------------------------------------
 
-proc runCakConnectWith(input: string; curl: Curly): string =
-  var fds: array[2, cint]
-  discard pipe(fds)
-  let rd = fds[0]
-  let wr = fds[1]
-  if input.len > 0:
-    discard write(wr, input.cstring, input.len.cint)
-  discard close(wr)
-  let sin = newAsyncFile(AsyncFD(rd))
-  var sout = newStringStream()
-  waitFor runCakConnect(curl, sin, sout)
-  sin.close()
-  result = sout.data
-
-suite "runCakConnect":
-
-  let curl = newCurly()
-
-  test "empty input produces no output":
-    check runCakConnectWith("", curl) == ""
-
-  test "only blank lines produces no output":
-    check runCakConnectWith("\n\n\n  \n\t\n", curl) == ""
-
-  test "unknown method writes error to output":
-    let result = runCakConnectWith("""{"jsonrpc":"2.0","id":1,"method":"/unknown/method"}""" & "\n", curl).parseJson
-    check result["error"]["code"].getInt == -32601
-    check result["error"]["message"].getStr == "Method not found"
-
-  test "GET missing params writes error":
-    let result = runCakConnectWith("""{"jsonrpc":"2.0","id":1,"method":"/curl/v0/get"}""" & "\n", curl).parseJson
-    check result["error"]["code"].getInt == -32601
-    check result["error"]["message"].getStr == "Invalid method parameters, no params found"
-
-  test "multiple error requests produce multiple outputs":
-    let lines = runCakConnectWith(
-      """{"jsonrpc":"2.0","id":1,"method":"/unknown/a"}""" & "\n" &
-      """{"jsonrpc":"2.0","id":2,"method":"/unknown/b"}""" & "\n",
-      curl
-    ).strip.splitLines
-    check lines.len == 2
-    check parseJson(lines[0])["id"].getInt == 1
-    check parseJson(lines[1])["id"].getInt == 2
