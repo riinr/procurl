@@ -123,7 +123,7 @@ proc handleMethod*(batch: var RequestBatch; msg: JsonNode): JsonNode =
         tag=     $msg["id"])
   elif meth == "/curl/v0/batch":
     for req in msg["params"]["requests"].items:
-      var id =
+      let id =
         if req.contains "id":
           req["id"]
         else:
@@ -147,7 +147,7 @@ proc poolResponse*(sout: Stream; curl: Curly): int =
   if answer.isSome:
     let curled = answer.get.response
     let error  = answer.get.error
-    var id = parseJson curled.request.tag
+    let id = parseJson curled.request.tag
     if error == "":
       write sout, $buildSuccess(id, curled.code, curled.url, curled.body, curled.headers) & "\n"
     else:
@@ -156,27 +156,24 @@ proc poolResponse*(sout: Stream; curl: Curly): int =
 
 
 iterator getLine*(sin: Stream): string =
-  var line {.cursor.} = ""
   while true:
     yield ""
     try:
-      line = sin.readLine.strip
-      yield line
+      yield sin.readLine.strip
     except:
       break
 
 
 proc connect(sin, sout: Stream): void =
   let curl = newCurly()
-  var err {.cursor.}: JsonNode
-  var i   {.cursor.} = 0
+  var i    = 0
   for line in sin.getLine:
     if line.len == 0:
       i -= sout.poolResponse curl
     else:
       var batch: RequestBatch
-      err = batch.handleMethod line.parseJson
-      i  += batch.len
+      let err = batch.handleMethod line.parseJson
+      i += batch.len
       if err.kind != JNull:
         write sout, $err & "\n"
       if batch.len > 0:
@@ -196,7 +193,7 @@ proc parseCliArgs*(args: openArray[string]): CliActionKind =
   ## Pure function: parse CLI args into an action. No I/O, no quit.
   if args.len == 1 and args[0] == "protocols":
     return cakShowProtocols
-  if args.len == 3 and
+  elif args.len == 3 and
      args[0] == "protocols" and
      args[1] == "--protocol" and
      args[2] == STDIO_JSONL_JSONRPC:

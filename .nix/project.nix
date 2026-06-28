@@ -25,6 +25,7 @@
     pkgs.nodejs
     pkgs.ripgrep
     pkgs.gcc
+    pkgs.context7-mcp
   ];
 
   # configure direnv .envrc file
