@@ -1,4 +1,4 @@
-import std/[json,syncio,strutils,options,streams,asyncdispatch,asyncfile]
+import std/[json,syncio,strutils,options,streams]
 import curly
 
 
@@ -141,6 +141,50 @@ proc handleMethod*(batch: var RequestBatch; msg: JsonNode): JsonNode =
           tag=     $id)
 
 
+proc poolResponse*(sout: Stream; curl: Curly): int =
+  result = 0
+  let answer = curl.pollForResponse
+  if answer.isSome:
+    let curled = answer.get.response
+    let error  = answer.get.error
+    var id = parseJson curled.request.tag
+    if error == "":
+      write sout, $buildSuccess(id, curled.code, curled.url, curled.body, curled.headers) & "\n"
+    else:
+      write sout, $buildError(%*{"id": id}, -32000, error) & "\n"
+    return 1
+
+
+iterator getLine*(sin: Stream): string =
+  var line {.cursor.} = ""
+  while true:
+    yield ""
+    try:
+      line = sin.readLine.strip
+      yield line
+    except:
+      break
+
+
+proc connect(sin, sout: Stream): void =
+  let curl = newCurly()
+  var err {.cursor.}: JsonNode
+  var i   {.cursor.} = 0
+  for line in sin.getLine:
+    if line == "":
+      i -= sout.poolResponse curl
+    else:
+      var batch: RequestBatch
+      err = batch.handleMethod line.parseJson
+      i  += batch.len
+      if err.kind != JNull:
+        write sout, $err & "\n"
+      if batch.len > 0:
+        curl.startRequests batch
+  while i > 0:
+    i -= sout.poolResponse curl
+
+
 type CliActionKind* = enum
   cakShowProtocols     ## Show Protocols list
   cakShowProtocolHelp  ## Show Protocols details
@@ -165,70 +209,11 @@ proc parseCliArgs*(args: openArray[string]): CliActionKind =
   return cakUnknown
 
 
-template writeResponse*(sout: Stream; response: Response; error: string) =
-  let curled = response
-  var id = parseJson curled.request.tag
-  if error == "":
-    write sout, $buildSuccess(id, curled.code, curled.url, curled.body, curled.headers) & "\n"
-  else:
-    write sout, $buildError(%*{"id": id}, -32000, error) & "\n"
-
-
-template poolResponse*(sout: Stream; curl: Curly) =
-  let answer = curl.pollForResponse
-  if answer.isSome:
-    sout.writeResponse answer.get.response, answer.get.error
-
-
-proc connect(sin, sout, serr: Stream): void =
-  let curl = newCurly()
-  var err {.cursor.}: JsonNode
-  var lin {.cursor.}: string
-  while true:
-    try:
-      lin =  sin.readLine
-    except:
-      break
-    if lin.strip == "":
-      continue 
-    var batch: RequestBatch
-    err = batch.handleMethod lin.parseJson
-    if err.kind != JNull:
-      write sout, $err & "\n"
-    write sout, "\n>>>" & lin & "\n\n"
-    curl.startRequests batch
-    sout.poolResponse curl
-  while curl.hasRequests:
-    sout.poolResponse curl
-
-
-proc runCakConnect*(curl: Curly; sin: AsyncFile; sout: Stream): Future[void] {.async.} =
-  var err: JsonNode
-  while true:
-    var lin = try: await sin.readLine except: ""
-    if lin.len == 0:
-      break
-    if lin.strip == "":
-      continue
-    var batch: RequestBatch
-    err = batch.handleMethod lin.parseJson
-    if err.kind != JNull:
-      write sout, $err & "\n"
-    curl.startRequests batch
-    if batch.len > 0:
-      sout.poolResponse curl
-  while curl.hasRequests:
-    sout.poolResponse curl
-
-
 proc main*(params: seq[string], sin, sout, serr: Stream): void =
   case params.parseCliArgs
-  of cakShowProtocols:
-    sout.write STDIO_JSONL_JSONRPC
-  of cakShowProtocolHelp:
-    sout.write STDIO_JSONL_JSONRPC_HELP
-  of cakConnect:
-    connect(sin, sout, serr)
+  of cakConnect:           connect(sin, sout)
+  of cakShowProtocols:     sout.write STDIO_JSONL_JSONRPC
+  of cakShowProtocolHelp:  sout.write STDIO_JSONL_JSONRPC_HELP
   of cakUnknown:
     serr.write UNKNOWN_COMMAND_OR_PROTOCOL
     quit 1
@@ -239,4 +224,6 @@ when isMainModule:
   var params = newSeq[string]()
   for i in 1..paramCount():
     params.add i.paramStr
+
   params.main stdin.newFileStream, stdout.newFileStream, stderr.newFileStream
+
