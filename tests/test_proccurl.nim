@@ -1,4 +1,4 @@
-import std/[unittest, json, strutils, streams]
+import std/[unittest, json, strutils, streams, posix, asyncfile, asyncdispatch]
 import proccurl
 import curly
 
@@ -235,14 +235,12 @@ suite "Constants":
 
 suite "handleMethod":
 
-  let curl = newCurly()
+  var batch: RequestBatch
 
   test "GET with missing params returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/get"}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no params found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/get"
@@ -250,9 +248,7 @@ suite "handleMethod":
   test "GET with params but no url returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/get", "params": {}}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no param url found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/get"
@@ -260,9 +256,7 @@ suite "handleMethod":
   test "POST with missing params returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/post"}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no params found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/post"
@@ -270,9 +264,7 @@ suite "handleMethod":
   test "POST with params but no url returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/post", "params": {}}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no param url found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/post"
@@ -281,9 +273,7 @@ suite "handleMethod":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/post",
                  "params": {"url": "http://example.com"}}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no param body found"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/post"
@@ -292,9 +282,7 @@ suite "handleMethod":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/post",
                  "params": {"url": "http://example.com", "body": 123}}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, body should be a string"
     check resp["error"]["data"]["method"].getStr == "/curl/v0/post"
@@ -302,9 +290,7 @@ suite "handleMethod":
   test "Unknown method returns Method not found error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/unknown/method"}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Method not found"
     check resp["error"]["data"]["method"].getStr == "/unknown/method"
@@ -312,34 +298,26 @@ suite "handleMethod":
   test "Unknown method preserves input id":
     let msg = %*{"jsonrpc": "2.0", "id": 99, "method": "/does/not/exist"}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["id"].getInt == 99
 
   test "Error responses always return jsonrpc 2.0":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/get"}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["jsonrpc"].getStr == "2.0"
 
   test "_API/v1 with id preserves the id":
     let msg = %*{"jsonrpc": "2.0", "id": 42, "method": "/_API/v1"}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["id"].getInt == 42
     check resp["result"]["openrpc"].getStr == "1.2.1"
 
   test "_API/v1 without id uses default template id":
     let msg = %*{"jsonrpc": "2.0", "method": "/_API/v1"}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["id"].getInt == 1
     check resp["result"]["openrpc"].getStr == "1.2.1"
 
@@ -351,32 +329,26 @@ suite "handleMethod":
   test "non-JObject input returns error":
     let msg = %*["not", "an", "object"]
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Method not found"
 
 
 suite "handleMethod batch":
 
-  let curl = newCurly()
+  var batch: RequestBatch
 
   test "batch with missing params returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/batch"}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, no params found"
 
   test "batch with missing requests returns error":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/batch", "params": {}}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, requests should be an array"
 
@@ -384,9 +356,7 @@ suite "handleMethod batch":
     let msg = %*{"jsonrpc": "2.0", "id": 1, "method": "/curl/v0/batch",
                  "params": {"requests": "not-an-array"}}
     var resp: JsonNode
-    for r in handleMethod(curl, msg):
-      resp = r
-      break
+    resp = batch.handleMethod(msg)
     check resp["error"]["code"].getInt == -32601
     check resp["error"]["message"].getStr == "Invalid method parameters, requests should be an array"
 
@@ -560,3 +530,51 @@ suite "getMethod":
 
   test "curl/v0/batch method returns curl/v0/batch":
     check getMethod(%*{"method": "/curl/v0/batch"}) == "/curl/v0/batch"
+
+# ---------------------------------------------------------------------------
+# runCakConnect — async stream-based connect loop tests
+# ---------------------------------------------------------------------------
+
+proc runCakConnectWith(input: string; curl: Curly): string =
+  var fds: array[2, cint]
+  discard pipe(fds)
+  let rd = fds[0]
+  let wr = fds[1]
+  if input.len > 0:
+    discard write(wr, input.cstring, input.len.cint)
+  discard close(wr)
+  let sin = newAsyncFile(AsyncFD(rd))
+  var sout = newStringStream()
+  waitFor runCakConnect(curl, sin, sout)
+  sin.close()
+  result = sout.data
+
+suite "runCakConnect":
+
+  let curl = newCurly()
+
+  test "empty input produces no output":
+    check runCakConnectWith("", curl) == ""
+
+  test "only blank lines produces no output":
+    check runCakConnectWith("\n\n\n  \n\t\n", curl) == ""
+
+  test "unknown method writes error to output":
+    let result = runCakConnectWith("""{"jsonrpc":"2.0","id":1,"method":"/unknown/method"}""" & "\n", curl).parseJson
+    check result["error"]["code"].getInt == -32601
+    check result["error"]["message"].getStr == "Method not found"
+
+  test "GET missing params writes error":
+    let result = runCakConnectWith("""{"jsonrpc":"2.0","id":1,"method":"/curl/v0/get"}""" & "\n", curl).parseJson
+    check result["error"]["code"].getInt == -32601
+    check result["error"]["message"].getStr == "Invalid method parameters, no params found"
+
+  test "multiple error requests produce multiple outputs":
+    let lines = runCakConnectWith(
+      """{"jsonrpc":"2.0","id":1,"method":"/unknown/a"}""" & "\n" &
+      """{"jsonrpc":"2.0","id":2,"method":"/unknown/b"}""" & "\n",
+      curl
+    ).strip.splitLines
+    check lines.len == 2
+    check parseJson(lines[0])["id"].getInt == 1
+    check parseJson(lines[1])["id"].getInt == 2
